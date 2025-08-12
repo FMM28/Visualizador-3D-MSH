@@ -1,5 +1,4 @@
 import os
-import threading
 
 class LectorMsh:
     def __init__(self):
@@ -7,21 +6,18 @@ class LectorMsh:
         self.archivos = []
         self.total_modelos = 0
         self.indice_actual = -1
-        self.cache = {}
-        self.lock = threading.Lock()
-        self.thread_precarga = None
-        self.detener_precarga = False
 
     def abrir_carpeta(self, carpeta):
+        """Abre la carpeta y lista todos los archivos .msh"""
         self.carpeta = carpeta
         self.archivos = sorted([
             f for f in os.listdir(carpeta) if f.lower().endswith('.msh')
         ])
         self.total_modelos = len(self.archivos)
         self.indice_actual = -1
-        self.cache = {}
 
     def _leer_archivo(self, indice):
+        """Lee y devuelve coordenadas y elementos de un archivo .msh"""
         if indice < 0 or indice >= self.total_modelos:
             return None, None
 
@@ -64,54 +60,14 @@ class LectorMsh:
 
         return coordenadas, elementos
 
-    def _cargar_modelo(self, indice):
-        coords, elems = self._leer_archivo(indice)
-        with self.lock:
-            self.cache[indice] = (coords, elems)
-
-    def _precargar_vecino(self, indice):
-        if 0 <= indice < self.total_modelos:
-            with self.lock:
-                if indice in self.cache:
-                    return
-            if self.detener_precarga:
-                return
-            self._cargar_modelo(indice)
-
-    def _iniciar_precarga(self, nuevo_indice):
-        self.detener_precarga = True
-
-        def precargar():
-            self.detener_precarga = False
-            vecinos = [nuevo_indice - 1, nuevo_indice + 1]
-            for i in vecinos:
-                if self.detener_precarga:
-                    return
-                self._precargar_vecino(i)
-
-            with self.lock:
-                claves_validas = {nuevo_indice - 1, nuevo_indice, nuevo_indice + 1}
-                for k in list(self.cache.keys()):
-                    if k not in claves_validas:
-                        del self.cache[k]
-
-        self.thread_precarga = threading.Thread(target=precargar, daemon=True)
-        self.thread_precarga.start()
-
     def ir_a(self, indice):
+        """Va al modelo con el índice especificado"""
         if not (0 <= indice < self.total_modelos):
             return False
 
-        if indice not in self.cache:
-            coords, elems = self._leer_archivo(indice)
-            with self.lock:
-                self.cache[indice] = (coords, elems)
-
         self.indice_actual = indice
-        self._iniciar_precarga(indice)
         print(f"Cargado: {self.obtener_nombre_actual()}")
         return True
-
 
     def ir_al_primero(self):
         return self.ir_a(0)
@@ -119,22 +75,26 @@ class LectorMsh:
     def ir_al_ultimo(self):
         return self.ir_a(self.total_modelos - 1)
 
-    def ir_al_siguiente(self):
-        return self.ir_a(self.indice_actual + 1)
-
-    def ir_al_anterior(self):
-        return self.ir_a(self.indice_actual - 1)
-
     def obtener_modelo_actual(self):
-        with self.lock:
-            return self.cache.get(self.indice_actual, (None, None))
+        """Devuelve coordenadas y elementos del modelo actual"""
+        if self.indice_actual == -1:
+            return None, None
+        return self._leer_archivo(self.indice_actual)
 
     def obtener_nombre_actual(self):
+        """Devuelve el nombre del archivo actual"""
         if 0 <= self.indice_actual < self.total_modelos:
             return self.archivos[self.indice_actual]
         return None
-    
-    def ver_cache(self):
-        """Devuelve los índices actualmente en caché (ordenados)."""
-        with self.lock:
-            return sorted(self.cache.keys())
+
+    def obtener_lista_modelos(self):
+        """Devuelve la lista de archivos .msh en la carpeta"""
+        return list(self.archivos)
+
+    def obtener_total_modelos(self):
+        """Devuelve el total de modelos encontrados"""
+        return self.total_modelos
+
+    def obtener_carpeta(self):
+        """Devuelve la carpeta actual"""
+        return self.carpeta
