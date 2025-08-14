@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QHBoxLayout, QPushButton, QGroupBox, QLabel, 
                             QComboBox, QSlider)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QSurfaceFormat, QColor
+from PyQt6.QtGui import QColor
 from msh import LectorMsh
 from OpenGLWidget import OpenGLWidget
 
@@ -11,7 +11,7 @@ from OpenGLWidget import OpenGLWidget
 class MainWindow(QMainWindow):
     def __init__(self, coords, elements):
         super().__init__()
-        self.setWindowTitle("Visualizador 3D - Sólido y Alámbrico")
+        self.setWindowTitle("Visualizador 3D")
         self.setGeometry(100, 100, 1200, 800)
         self.showMaximized()
         
@@ -39,9 +39,9 @@ class MainWindow(QMainWindow):
         mode_group.setLayout(mode_layout)
         
         self.mode_combo = QComboBox()
-        self.mode_combo.addItem("Sólido (Gris)", "solid")
-        self.mode_combo.addItem("Alámbrico (Rojo)", "wireframe")
-        self.mode_combo.addItem("Combinado (Gris + Rojo)", "combined")
+        self.mode_combo.addItem("Sólido", "solid")
+        self.mode_combo.addItem("Alámbrico", "wireframe")
+        self.mode_combo.addItem("Combinado", "combined")
         self.mode_combo.currentIndexChanged.connect(self.change_mode)
         mode_layout.addWidget(self.mode_combo)
         
@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
         width_layout.addWidget(width_label)
         
         width_slider = QSlider(Qt.Orientation.Horizontal)
-        width_slider.setRange(1, 100)  # 1 a 100 representa 0.1 a 10.0
+        width_slider.setRange(1, 100)
         width_slider.setValue(int(self.gl_widget.line_width * 10))
         width_slider.valueChanged.connect(lambda value: self.change_line_width(value, width_label))
         width_layout.addWidget(width_slider)
@@ -114,7 +114,6 @@ class MainWindow(QMainWindow):
         self.gl_widget.set_mode(mode)
     
     def change_line_width(self, value, label):
-        # Convertir valor del slider (1-100) a ancho de línea (0.1-10.0)
         line_width = value / 10.0
         self.gl_widget.set_line_width(line_width)
         label.setText(f"Grosor actual: {line_width:.1f}")
@@ -136,14 +135,6 @@ if __name__ == '__main__':
     
     # Iniciar aplicación
     app = QApplication(sys.argv)
-    
-    # Configuración global de OpenGL
-    fmt = QSurfaceFormat()
-    fmt.setVersion(3, 3)
-    fmt.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
-    fmt.setSamples(4)
-    fmt.setDepthBufferSize(24)
-    QSurfaceFormat.setDefaultFormat(fmt)
     
     window = MainWindow(coords, elements)
     window.show()

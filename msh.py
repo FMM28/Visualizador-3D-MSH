@@ -52,7 +52,7 @@ class LectorMsh:
                         break
                     partes = lineas[i].split()
                     if len(partes) >= 4:
-                        nodos = list(map(int, partes[1:-1]))
+                        nodos = [int(idx) - 1 for idx in partes[1:-1]]
                         elementos.append(nodos)
                     i += 1
             else:
