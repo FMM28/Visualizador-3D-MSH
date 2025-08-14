@@ -1,0 +1,8 @@
+multipledispatch==1.0.0
+numpy==2.3.2
+PyOpenGL==3.1.9
+PyOpenGL-accelerate==3.1.9
+PyQt6==6.9.1
+PyQt6-Qt6==6.9.1
+PyQt6_sip==13.10.2
+pyrr==0.10.3
