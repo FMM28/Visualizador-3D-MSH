@@ -46,7 +46,12 @@ class Camera:
         move = (dx * right + dy * up) * (self.pan_speed * self.distance)
         self.center += move
 
-    
     def zoom(self, amount):
         self.distance *= 1.0 - amount * self.zoom_speed
         self.distance = np.clip(self.distance, self.radius * 0.05, self.radius * 10.0)
+        
+    def set_model_bounds(self, center, radius):
+        """Update the model center and radius for the camera"""
+        self.center = np.array(center)
+        self.radius = radius
+        self.distance = min(max(self.distance, radius * 0.5), radius * 5.0)

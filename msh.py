@@ -1,100 +1,214 @@
 import os
+import numpy as np
 
-class LectorMsh:
+class Lector:
     def __init__(self):
         self.carpeta = None
-        self.archivos = []
+        self.archivos_msh = []
         self.total_modelos = 0
-        self.indice_actual = -1
 
     def abrir_carpeta(self, carpeta):
-        """Abre la carpeta y lista todos los archivos .msh"""
         self.carpeta = carpeta
-        self.archivos = sorted([
-            f for f in os.listdir(carpeta) if f.lower().endswith('.msh')
-        ])
-        self.total_modelos = len(self.archivos)
-        self.indice_actual = -1
+        if not os.path.exists(carpeta):
+            raise FileNotFoundError(f"La carpeta {carpeta} no existe")
 
-    def _leer_archivo(self, indice):
-        """Lee y devuelve coordenadas y elementos de un archivo .msh"""
-        if indice < 0 or indice >= self.total_modelos:
-            return None, None
+        self.archivos_msh = sorted([f for f in os.listdir(carpeta) if f.lower().endswith('.msh')])
+        self.total_modelos = len(self.archivos_msh)
 
-        ruta = os.path.join(self.carpeta, self.archivos[indice])
-        coordenadas = []
-        elementos = []
+        if self.total_modelos == 0:
+            print("Advertencia: No se encontraron archivos .msh en la carpeta.")
+        else:
+            print(f"Total de modelos cargados: {self.total_modelos}")
 
-        with open(ruta, 'r') as f:
-            lineas = f.readlines()
+    def _leer_msh(self, msh_file):
+        ruta = os.path.join(self.carpeta, msh_file)
+        
+        try:
+            with open(ruta, 'r', encoding='utf-8') as f:
+                lineas = f.readlines()
+        except Exception as e:
+            print(f"Error al leer {msh_file}: {e}")
+            return np.array([]), np.array([])
+
+        coordenadas_lista = []
+        elementos_lista = []
 
         i = 0
         while i < len(lineas):
             linea = lineas[i].strip().lower()
 
+            # Coordenadas
             if linea.startswith("coordinates"):
                 i += 1
                 while i < len(lineas):
-                    linea = lineas[i].strip().lower()
-                    if linea.startswith("end coordinates"):
+                    l_clean = lineas[i].strip().lower()
+                    if l_clean.startswith("end coordinates"):
                         break
                     partes = lineas[i].split()
                     if len(partes) >= 3:
-                        coords = list(map(float, partes[1:]))
-                        coordenadas.append(coords)
+                        try:
+                            if len(partes) == 4:  # 3D
+                                coords = list(map(float, partes[1:4]))
+                            elif len(partes) == 3:  # 2D
+                                coords = list(map(float, partes[1:3]))
+                                coords.append(0.0)
+                            else:
+                                i += 1
+                                continue
+                            coordenadas_lista.append(coords)
+                        except ValueError:
+                            pass
                     i += 1
 
+            # Elementos
             elif linea.startswith("elements"):
                 i += 1
                 while i < len(lineas):
-                    linea = lineas[i].strip().lower()
-                    if linea.startswith("end elements"):
+                    l_clean = lineas[i].strip().lower()
+                    if l_clean.startswith("end elements"):
                         break
                     partes = lineas[i].split()
                     if len(partes) >= 4:
-                        nodos = [int(idx) - 1 for idx in partes[1:-1]]
-                        elementos.append(nodos)
+                        try:
+                            nodos = [int(idx) - 1 for idx in partes[1:-1]]
+                            elementos_lista.append(nodos)
+                        except ValueError:
+                            pass
                     i += 1
             else:
                 i += 1
 
+        coordenadas = np.array(coordenadas_lista, dtype=np.float64) if coordenadas_lista else np.array([])
+        elementos = np.array(elementos_lista, dtype=object) if elementos_lista else np.array([])
+        
         return coordenadas, elementos
 
-    def ir_a(self, indice):
-        """Va al modelo con el índice especificado"""
-        if not (0 <= indice < self.total_modelos):
-            return False
+    def _leer_res(self, res_file):
+        ruta = os.path.join(self.carpeta, res_file)
+        if not os.path.exists(ruta):
+            print(f"Archivo .res no encontrado: {ruta}")
+            return {
+                "desplazamientos": None,
+                "esfuerzos_nodos": None,
+                "esfuerzos_gauss": None
+            }
 
-        self.indice_actual = indice
-        print(f"Cargado: {self.obtener_nombre_actual()}")
-        return True
+        try:
+            with open(ruta, 'r', encoding='iso-8859-1') as f:
+                lineas = f.readlines()
+        except Exception as e:
+            print(f"Error al leer {res_file}: {e}")
+            return {
+                "desplazamientos": None,
+                "esfuerzos_nodos": None,
+                "esfuerzos_gauss": None
+            }
 
-    def ir_al_primero(self):
-        return self.ir_a(0)
+        datos = {
+            "desplazamientos": None,
+            "esfuerzos_nodos": None,
+            "esfuerzos_gauss": None
+        }
 
-    def ir_al_ultimo(self):
-        return self.ir_a(self.total_modelos - 1)
+        seccion_actual = None
+        valores_actuales = []
+        ids_actuales = []
+        tipo_actual = None
 
-    def obtener_modelo_actual(self):
-        """Devuelve coordenadas y elementos del modelo actual"""
-        if self.indice_actual == -1:
-            return None, None
-        return self._leer_archivo(self.indice_actual)
+        for i, linea in enumerate(lineas):
+            linea_clean = linea.strip().lower()
 
-    def obtener_nombre_actual(self):
-        """Devuelve el nombre del archivo actual"""
-        if 0 <= self.indice_actual < self.total_modelos:
-            return self.archivos[self.indice_actual]
-        return None
+            # Detectar inicio de sección
+            if 'result' in linea_clean:
+                if 'desplazamientos' in linea_clean:
+                    tipo_actual = "desplazamientos"
+                    seccion_actual = "values"
+                    valores_actuales = []
+                    ids_actuales = []
+                elif 'esfuerzo' in linea_clean and 'gauss' not in linea_clean:
+                    tipo_actual = "esfuerzos_nodos"
+                    seccion_actual = "values"
+                    valores_actuales = []
+                    ids_actuales = []
+                elif 'gauss' in linea_clean:
+                    tipo_actual = "esfuerzos_gauss"
+                    seccion_actual = "values"
+                    valores_actuales = []
+                    ids_actuales = []
+                continue
 
-    def obtener_lista_modelos(self):
-        """Devuelve la lista de archivos .msh en la carpeta"""
-        return list(self.archivos)
+            # Detectar inicio de bloque values
+            if linea_clean.startswith("values"):
+                seccion_actual = "values"
+                continue
 
-    def obtener_total_modelos(self):
-        """Devuelve el total de modelos encontrados"""
-        return self.total_modelos
+            # Detectar fin de bloque values
+            if linea_clean.startswith("end values"):
+                if tipo_actual and valores_actuales:
+                    if tipo_actual == "desplazamientos":
+                        desplazamientos_procesados = []
+                        for val in valores_actuales:
+                            if len(val) == 3:
+                                desplazamientos_procesados.append(val)
+                            elif len(val) == 4:
+                                desplazamientos_procesados.append(val[1:])
+                        if desplazamientos_procesados:
+                            datos[tipo_actual] = (np.array(ids_actuales, dtype=np.int32), 
+                                                 np.array(desplazamientos_procesados, dtype=np.float64))
+                    else:
+                        datos[tipo_actual] = (np.array(ids_actuales, dtype=np.int32), 
+                                             np.array(valores_actuales, dtype=np.float64))
+                
+                # Resetear para la próxima sección
+                seccion_actual = None
+                tipo_actual = None
+                valores_actuales = []
+                ids_actuales = []
+                continue
 
-    def obtener_carpeta(self):
-        """Devuelve la carpeta actual"""
-        return self.carpeta
+            # Procesar líneas de datos dentro de la sección values
+            if seccion_actual == "values" and linea_clean and linea_clean[0].isdigit():
+                partes = linea_clean.split()
+                try:
+                    id_val = int(partes[0])
+                    if tipo_actual == "desplazamientos":
+                        if len(partes) == 4:
+                            valores = list(map(float, partes[1:4]))
+                        elif len(partes) == 3:
+                            valores = list(map(float, partes[1:3]))
+                            valores.append(0.0)
+                        else:
+                            continue
+                    else:
+                        valores = list(map(float, partes[1:]))
+                    
+                    ids_actuales.append(id_val)
+                    valores_actuales.append(valores)
+                    
+                except (ValueError, IndexError):
+                    continue
+
+        return datos
+
+    def obtener_modelo(self, indice):
+        msh_file = self.archivos_msh[indice]
+        res_file = msh_file.rsplit('.', 1)[0] + '.RES'
+        datos = {
+            "msh": self._leer_msh(msh_file),
+            "res": self._leer_res(res_file)
+        }
+        return datos
+
+    def obtener_nombre_modelo(self, indice):
+        return self.archivos_msh[indice]
+
+    def __str__(self):
+        status = [
+            f"Carpeta: {self.carpeta}",
+            f"Total de modelos: {self.total_modelos}"
+        ]
+        if self.total_modelos > 0:
+            status.append("Modelos:")
+            for i, msh in enumerate(self.archivos_msh):
+                status.append(f"  [{i}] {msh}")
+        return "\n".join(status)
