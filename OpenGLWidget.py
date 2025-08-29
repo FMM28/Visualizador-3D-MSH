@@ -57,7 +57,8 @@ class OpenGLWidget(QOpenGLWidget):
 
     def __init__(self, coords, elements, parent=None):
         super().__init__(parent)
-        self.coords = coords
+
+        self.coords_array = np.asarray(coords, dtype=np.float32)
         self.elements = elements
         
         # Estado
@@ -67,9 +68,10 @@ class OpenGLWidget(QOpenGLWidget):
         self.bg_color = (0.1, 0.1, 0.1)
         self.line_width = 1
         
-        # Datos del modelo
-        self.model_center = None
-        self.model_radius = None
+        # Geometría precalculada
+        self.triangle_indices = None
+        self.line_indices = None
+        self.line_vertices_buffer = None
         
         # Recursos OpenGL
         self.shader_programs = {}
@@ -77,7 +79,6 @@ class OpenGLWidget(QOpenGLWidget):
         
         # Flags
         self.gl_initialized = False
-        self.has_valid_data = False
         
         self._setup_opengl_format()
     
@@ -98,112 +99,28 @@ class OpenGLWidget(QOpenGLWidget):
         self.setFormat(fmt)
     
     def initializeGL(self):
+        """Inicializa OpenGL"""
         print("Inicializando OpenGL...")
         
         # Configuración OpenGL básica
-        self._configure_opengl_state()
-        
-        # Procesar datos y crear recursos
-        self._process_geometry()
-        
-        if self.has_valid_data:
-            self._create_shaders()
-            self._create_buffers()
-            self._setup_camera()
-            print(f"Inicialización completa. Triángulos: {self.buffers['solid']['count']//3}, Líneas: {self.buffers['line']['count']//2}")
-        else:
-            print("No se pudieron procesar los datos de geometría")
-            self._create_minimal_setup()
-        
-        self.gl_initialized = True
-    
-    def _configure_opengl_state(self):
-        """Configura el estado inicial de OpenGL"""
         glEnable(GL_DEPTH_TEST)
         glDisable(GL_CULL_FACE)
         glEnable(GL_POLYGON_OFFSET_FILL)
-    
-    def _validate_input_data(self):
-        """Valida que los datos de entrada sean correctos"""
-        if not self.coords or not self.elements:
-            print("Faltan coordenadas o elementos")
-            return False
         
-        try:
-            # Validar coordenadas
-            for i, coord in enumerate(self.coords):
-                if not isinstance(coord, (list, tuple)) or len(coord) < 2:
-                    print(f"Coordenada inválida en índice {i}: {coord}")
-                    return False
-                
-                for val in coord[:3]:
-                    float(val)
-            
-            # Validar elementos
-            max_coord_index = len(self.coords) - 1
-            for i, elem in enumerate(self.elements):
-                if not isinstance(elem, (list, tuple)) or len(elem) < 3:
-                    print(f"Elemento inválido en índice {i}: {elem}")
-                    return False
-                
-                for node_idx in elem:
-                    if not isinstance(node_idx, int) or not (0 <= node_idx <= max_coord_index):
-                        print(f"Índice de nodo inválido en elemento {i}: {node_idx}")
-                        return False
-            
-            return True
-            
-        except (ValueError, TypeError) as e:
-            print(f"Error validando datos: {e}")
-            return False
+        # Procesar geometría
+        self._process_geometry()
+        
+        # Crear recursos OpenGL
+        self._create_shaders()
+        self._create_buffers()
+        self._setup_camera()
+        
+        self.gl_initialized = True
+        print(f"Inicialización completa. Triángulos: {len(self.triangle_indices)//3}, Líneas: {len(self.line_indices)//2}")
     
     def _process_geometry(self):
-        """Procesa coordenadas y elementos para crear triángulos y líneas"""
-        try:
-            if not self._validate_input_data():
-                self.has_valid_data = False
-                return
-            
-            # Normalizar coordenadas a 3D
-            self.coords_array = self._normalize_coords_to_3d()
-            
-            # Procesar elementos
-            triangles, edges = self._process_elements()
-            
-            if not triangles:
-                print("No se generaron triángulos válidos")
-                self.has_valid_data = False
-                return
-            
-            # Almacenar datos procesados
-            self.triangles_array = np.array(triangles, dtype=np.uint32).flatten()
-            self.buffers['solid']['count'] = len(self.triangles_array)
-            
-            # Crear geometría de líneas
-            self._create_line_geometry(edges)
-            
-        except Exception as e:
-            print(f"Error procesando geometría: {e}")
-            self.has_valid_data = False
-    
-    def _normalize_coords_to_3d(self):
-        """Normaliza coordenadas a 3D"""
-        coords_3d = []
-        for point in self.coords:
-            if len(point) == 2:
-                coords_3d.append([float(point[0]), float(point[1]), 0.0])
-            else:
-                coords_3d.append([float(point[0]), float(point[1]), float(point[2] if len(point) > 2 else 0.0)])
-        
-        coords_array = np.array(coords_3d, dtype=np.float32)
-        
-        if coords_array.size == 0 or len(coords_array.shape) != 2 or coords_array.shape[1] != 3:
-            raise ValueError(f"Array de coordenadas inválido: shape={coords_array.shape}")
-        
-        return coords_array
-    
-    def _process_elements(self):
-        """Procesa elementos en triángulos y aristas"""
+        """Procesa la geometría una sola vez al inicio"""
+
         triangles = []
         edges = set()
         
@@ -211,7 +128,6 @@ class OpenGLWidget(QOpenGLWidget):
             elem_triangles = self._element_to_triangles(elem)
             triangles.extend(elem_triangles)
             
-            # Generar aristas
             for tri in elem_triangles:
                 edges.update([
                     tuple(sorted((tri[0], tri[1]))),
@@ -219,56 +135,36 @@ class OpenGLWidget(QOpenGLWidget):
                     tuple(sorted((tri[2], tri[0])))
                 ])
         
-        return triangles, edges
-    
-    def _create_line_geometry(self, edges):
-        """Crea la geometría de líneas a partir de las aristas"""
-        line_vertices = []
-        for edge in edges:
-            if edge[0] < len(self.coords_array) and edge[1] < len(self.coords_array):
-                line_vertices.extend(self.coords_array[edge[0]])
-                line_vertices.extend(self.coords_array[edge[1]])
-        
-        if line_vertices:
-            self.line_vertices = np.array(line_vertices, dtype=np.float32)
-            self.buffers['line']['count'] = len(edges) * 2
-            self.has_valid_data = True
-        else:
-            print("No se generaron líneas válidas")
-            self.has_valid_data = False
+        self.triangle_indices = np.array(triangles, dtype=np.uint32).flatten()
+        self.line_indices = np.array([list(edge) for edge in edges], dtype=np.uint32).flatten()
+        self.line_vertices_buffer = np.zeros(len(self.line_indices) * 3, dtype=np.float32)
     
     def _element_to_triangles(self, elem):
         """Convierte un elemento en triángulos según su tipo"""
-        try:
-            elem_len = len(elem)
-            
-            if elem_len == 3:  # Triángulo
-                return [elem]
-            elif elem_len == 4:  # Tetraedro o cuadrilátero
-                if self._is_3d_element(elem):
-                    return self._tetrahedron_faces(elem)
-                else:
-                    return [[elem[0], elem[1], elem[2]], [elem[0], elem[2], elem[3]]]
-            elif elem_len == 8:  # Hexaedro
-                return self._hexahedron_faces(elem)
-            elif elem_len > 4:  # Polígono general - triangulación en abanico
-                return [[elem[0], elem[i], elem[i+1]] for i in range(1, elem_len-1)]
+        elem_len = len(elem)
+        
+        if elem_len == 3:
+            return [elem]
+        elif elem_len == 4:
+            if self._is_3d_element(elem):
+                return self._tetrahedron_faces(elem)
             else:
-                return []
-        except Exception as e:
-            print(f"Error procesando elemento {elem}: {e}")
+                return [[elem[0], elem[1], elem[2]], [elem[0], elem[2], elem[3]]]
+        elif elem_len == 8:
+            return self._hexahedron_faces(elem)
+        elif elem_len > 4:
+            return [[elem[0], elem[i], elem[i+1]] for i in range(1, elem_len-1)]
+        else:
             return []
     
     def _is_3d_element(self, elem):
         """Determina si un elemento de 4 nodos es 3D (tetraedro) o 2D (cuadrilátero)"""
         try:
-            if len(self.coords_array) <= max(elem):
-                return False
             coords = self.coords_array[elem]
             v1, v2, v3 = coords[1:4] - coords[0]
             volume = abs(np.dot(v1, np.cross(v2, v3))) / 6.0
             return volume > 1e-10
-        except Exception:
+        except:
             return False
     
     def _tetrahedron_faces(self, elem):
@@ -289,17 +185,6 @@ class OpenGLWidget(QOpenGLWidget):
             [elem[3], elem[2], elem[6]], [elem[3], elem[6], elem[7]]
         ]
     
-    def _create_minimal_setup(self):
-        """Crea una configuración mínima cuando no hay datos válidos"""
-        self.model_center = np.array([0.0, 0.0, 0.0])
-        self.model_radius = 5.0
-        self.camera = Camera(self.model_center, self.model_radius)
-        
-        try:
-            self._create_shaders()
-        except Exception as e:
-            print(f"Error creando shaders mínimos: {e}")
-    
     def _create_shaders(self):
         """Crea todos los shaders necesarios"""
         try:
@@ -318,15 +203,12 @@ class OpenGLWidget(QOpenGLWidget):
             
         except Exception as e:
             print(f"Error compilando shaders: {e}")
+            raise
     
     def _create_buffers(self):
         """Crea todos los buffers OpenGL"""
-        if not self.has_valid_data:
-            return
-        
         self._create_solid_buffers()
         self._create_line_buffers()
-        
         glBindVertexArray(0)
         print("Buffers creados exitosamente")
     
@@ -336,80 +218,46 @@ class OpenGLWidget(QOpenGLWidget):
         solid_buf['vao'] = glGenVertexArrays(1)
         solid_buf['vbo'] = glGenBuffers(1)
         solid_buf['ibo'] = glGenBuffers(1)
+        solid_buf['count'] = len(self.triangle_indices)
         
         glBindVertexArray(solid_buf['vao'])
         
         # VBO coordenadas
         glBindBuffer(GL_ARRAY_BUFFER, solid_buf['vbo'])
-        glBufferData(GL_ARRAY_BUFFER, self.coords_array.nbytes, self.coords_array, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, self.coords_array.nbytes, self.coords_array, GL_DYNAMIC_DRAW)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
         glEnableVertexAttribArray(0)
         
         # IBO índices
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, solid_buf['ibo'])
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, self.triangles_array.nbytes, self.triangles_array, GL_STATIC_DRAW)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, self.triangle_indices.nbytes, self.triangle_indices, GL_STATIC_DRAW)
     
     def _create_line_buffers(self):
         """Crea buffers para renderizado de líneas"""
         line_buf = self.buffers['line']
         line_buf['vao'] = glGenVertexArrays(1)
         line_buf['vbo'] = glGenBuffers(1)
+        line_buf['count'] = len(self.line_indices)
+        
+        self._update_line_vertices_buffer()
         
         glBindVertexArray(line_buf['vao'])
         glBindBuffer(GL_ARRAY_BUFFER, line_buf['vbo'])
-        glBufferData(GL_ARRAY_BUFFER, self.line_vertices.nbytes, self.line_vertices, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, self.line_vertices_buffer.nbytes, self.line_vertices_buffer, GL_DYNAMIC_DRAW)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
         glEnableVertexAttribArray(0)
     
-    def _update_buffers(self):
-        """Actualiza los buffers OpenGL con nuevas coordenadas"""
-        if not self.gl_initialized or not self.has_valid_data:
-            return
-        
-        try:
-            # Actualizar buffer sólido
-            glBindBuffer(GL_ARRAY_BUFFER, self.buffers['solid']['vbo'])
-            glBufferData(GL_ARRAY_BUFFER, self.coords_array.nbytes, self.coords_array, GL_STATIC_DRAW)
-            
-            # Regenerar líneas
-            self._regenerate_line_buffers()
-            
-            glBindBuffer(GL_ARRAY_BUFFER, 0)
-        except Exception as e:
-            print(f"Error actualizando buffers: {e}")
-    
-    def _regenerate_line_buffers(self):
-        """Regenera los buffers de líneas"""
-        _, edges = self._process_elements()
-        line_vertices = []
-        
-        for edge in edges:
-            if edge[0] < len(self.coords_array) and edge[1] < len(self.coords_array):
-                line_vertices.extend(self.coords_array[edge[0]])
-                line_vertices.extend(self.coords_array[edge[1]])
-        
-        if line_vertices:
-            self.line_vertices = np.array(line_vertices, dtype=np.float32)
-            glBindBuffer(GL_ARRAY_BUFFER, self.buffers['line']['vbo'])
-            glBufferData(GL_ARRAY_BUFFER, self.line_vertices.nbytes, self.line_vertices, GL_STATIC_DRAW)
+    def _update_line_vertices_buffer(self):
+        """Actualiza el buffer de vértices de líneas basado en coordenadas actuales"""
+        coords_flat = self.coords_array[self.line_indices].flatten()
+        self.line_vertices_buffer[:] = coords_flat
     
     def _setup_camera(self):
         """Configura la cámara basada en el modelo"""
-        try:
-            if self.coords_array.size == 0:
-                self.model_center = np.array([0.0, 0.0, 0.0])
-                self.model_radius = 5.0
-            else:
-                self.model_center = self.coords_array.mean(axis=0)
-                distances = np.linalg.norm(self.coords_array - self.model_center, axis=1)
-                self.model_radius = max(distances.max() * 1.5, 1.0)
-            
-            self.camera = Camera(self.model_center, self.model_radius)
-        except Exception as e:
-            print(f"Error configurando cámara: {e}")
-            self.model_center = np.array([0.0, 0.0, 0.0])
-            self.model_radius = 5.0
-            self.camera = Camera(self.model_center, self.model_radius)
+        model_center = self.coords_array.mean(axis=0)
+        distances = np.linalg.norm(self.coords_array - model_center, axis=1)
+        model_radius = max(distances.max() * 1.5, 1.0)
+        self.camera = Camera(model_center, model_radius)
     
     def _set_shader_uniforms(self, shader, mvp_matrix, shader_type):
         """Configura los uniformes del shader"""
@@ -429,9 +277,6 @@ class OpenGLWidget(QOpenGLWidget):
     
     def _render_solid(self, mvp_matrix):
         """Renderiza el modelo sólido"""
-        if not self.has_valid_data or "solid" not in self.shader_programs:
-            return
-            
         glPolygonOffset(1.0, 1.0)
         glEnable(GL_POLYGON_OFFSET_FILL)
         
@@ -445,9 +290,6 @@ class OpenGLWidget(QOpenGLWidget):
     
     def _render_wireframe(self, mvp_matrix):
         """Renderiza el modelo en alambre"""
-        if not self.has_valid_data or "line" not in self.shader_programs:
-            return
-            
         glDisable(GL_POLYGON_OFFSET_FILL)
         
         shader = self.shader_programs["line"]
@@ -467,26 +309,19 @@ class OpenGLWidget(QOpenGLWidget):
         glClearColor(*self.bg_color, 1.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         
-        if not self.has_valid_data:
-            return
-        
         # Calcular matriz MVP
         mvp_matrix = self._calculate_mvp_matrix()
         
         # Renderizar según modo
-        try:
-            if self.current_mode == "solid":
-                self._render_solid(mvp_matrix)
-            elif self.current_mode == "wireframe":
-                self._render_wireframe(mvp_matrix)
-            elif self.current_mode == "combined":
-                self._render_solid(mvp_matrix)
-                glDepthMask(GL_FALSE)
-                self._render_wireframe(mvp_matrix)
-                glDepthMask(GL_TRUE)
-                
-        except Exception as e:
-            print(f"Error en renderizado: {e}")
+        if self.current_mode == "solid":
+            self._render_solid(mvp_matrix)
+        elif self.current_mode == "wireframe":
+            self._render_wireframe(mvp_matrix)
+        elif self.current_mode == "combined":
+            self._render_solid(mvp_matrix)
+            glDepthMask(GL_FALSE)
+            self._render_wireframe(mvp_matrix)
+            glDepthMask(GL_TRUE)
     
     def _calculate_mvp_matrix(self):
         """Calcula la matriz MVP"""
@@ -554,43 +389,49 @@ class OpenGLWidget(QOpenGLWidget):
         self.bg_color = (color.redF(), color.greenF(), color.blueF())
         self.update()
     
-    def update_coords(self, new_coords, update_camera=False):
-        """Actualiza las coordenadas del modelo"""
-        self.coords = new_coords
-        
-        if not self._validate_input_data():
-            print("Las nuevas coordenadas no son válidas")
+    def update_coords(self, new_coords):
+        """Actualiza solo las coordenadas de los vértices - OPTIMIZADO"""
+        new_coords_array = np.asarray(new_coords, dtype=np.float32)
+        if new_coords_array.shape != self.coords_array.shape:
+            print(f"Error: Las nuevas coordenadas deben tener la misma forma que las originales")
+            print(f"Original: {self.coords_array.shape}, Nueva: {new_coords_array.shape}")
             return
         
-        # Reprocesar geometría
-        self._process_geometry()
+        # Actualizar coordenadas
+        self.coords_array[:] = new_coords_array
         
-        # Actualizar recursos si OpenGL está inicializado
-        if self.gl_initialized and self.has_valid_data:
-            self._update_buffers()
+        if self.gl_initialized:
+            glBindBuffer(GL_ARRAY_BUFFER, self.buffers['solid']['vbo'])
+            glBufferSubData(GL_ARRAY_BUFFER, 0, self.coords_array.nbytes, self.coords_array)
             
-            if update_camera:
-                self._setup_camera()
+            self._update_line_vertices_buffer()
+            glBindBuffer(GL_ARRAY_BUFFER, self.buffers['line']['vbo'])
+            glBufferSubData(GL_ARRAY_BUFFER, 0, self.line_vertices_buffer.nbytes, self.line_vertices_buffer)
+            
+            glBindBuffer(GL_ARRAY_BUFFER, 0)
             
             self.update()
     
     def update_camera_for_current_model(self):
         """Recalcula la cámara para el modelo actual"""
-        if self.gl_initialized and self.has_valid_data:
+        if self.gl_initialized:
             self._setup_camera()
             self.update()
     
     def __del__(self):
         """Limpieza de recursos OpenGL"""
-        if hasattr(self, 'buffers'):
+        if hasattr(self, 'buffers') and self.gl_initialized:
             self._cleanup_opengl_resources()
     
     def _cleanup_opengl_resources(self):
         """Limpia los recursos OpenGL"""
-        for buf_type in self.buffers.values():
-            if buf_type.get('vao'):
-                glDeleteVertexArrays(1, [buf_type['vao']])
-            if buf_type.get('vbo'):
-                glDeleteBuffers(1, [buf_type['vbo']])
-            if buf_type.get('ibo'):
-                glDeleteBuffers(1, [buf_type['ibo']])
+        try:
+            for buf_type in self.buffers.values():
+                if buf_type.get('vao'):
+                    glDeleteVertexArrays(1, [buf_type['vao']])
+                if buf_type.get('vbo'):
+                    glDeleteBuffers(1, [buf_type['vbo']])
+                if buf_type.get('ibo'):
+                    glDeleteBuffers(1, [buf_type['ibo']])
+        except:
+            pass

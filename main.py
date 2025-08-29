@@ -164,27 +164,14 @@ class MainWindow(QMainWindow):
     def _reset_to_original(self):
         """Restaura las coordenadas originales sin desplazamientos"""
         self.current_coords = self.original_coords.copy()
-        self.gl_widget.update_coords(
-            self.current_coords.tolist(), 
-            update_camera=False
-        )
+        self.gl_widget.update_coords(self.current_coords.tolist())
 
     def update_desplazamientos(self, value):
-        """Recalcula coordenadas con factor de amplificación, partiendo siempre de original_coords"""
         if not self.disp_checkbox.isChecked() or self.disp_array is None:
             return
 
-        self.current_coords = self.original_coords.copy()
-        
-        for i in range(len(self.current_coords)):
-            node_id = i + 1
-            if node_id <= len(self.disp_array):
-                self.current_coords[i] += self.disp_array[node_id-1] * value
-
-        self.gl_widget.update_coords(
-            self.current_coords.tolist(), 
-            update_camera=False
-        )
+        self.current_coords = self.original_coords + value * self.disp_array
+        self.gl_widget.update_coords(self.current_coords)
 
     def change_mode(self, index):
         mode = self.mode_combo.itemData(index)
