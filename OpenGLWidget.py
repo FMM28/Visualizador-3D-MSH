@@ -55,11 +55,12 @@ class OpenGLWidget(QOpenGLWidget):
         "line": "out vec4 frag_color; void main() { frag_color = vec4(1.0, 0.2, 0.2, 1.0); }"
     }
 
-    def __init__(self, coords, elements, parent=None):
+    def __init__(self, coords, triangle_indices, line_indices, parent=None):
         super().__init__(parent)
 
         self.coords_array = np.asarray(coords, dtype=np.float32)
-        self.elements = elements
+        self.triangle_indices = np.asarray(triangle_indices, dtype=np.uint32)
+        self.line_indices = np.asarray(line_indices, dtype=np.uint32)
         
         # Estado
         self.camera = None
@@ -67,10 +68,7 @@ class OpenGLWidget(QOpenGLWidget):
         self.current_mode = "solid"
         self.bg_color = (0.1, 0.1, 0.1)
         self.line_width = 1
-        
-        # Geometría precalculada
-        self.triangle_indices = None
-        self.line_indices = None
+
         self.line_vertices_buffer = None
         
         # Recursos OpenGL
@@ -107,8 +105,8 @@ class OpenGLWidget(QOpenGLWidget):
         glDisable(GL_CULL_FACE)
         glEnable(GL_POLYGON_OFFSET_FILL)
         
-        # Procesar geometría
-        self._process_geometry()
+        # Preparar buffer de líneas
+        self._prepare_line_buffer()
         
         # Crear recursos OpenGL
         self._create_shaders()
@@ -118,72 +116,15 @@ class OpenGLWidget(QOpenGLWidget):
         self.gl_initialized = True
         print(f"Inicialización completa. Triángulos: {len(self.triangle_indices)//3}, Líneas: {len(self.line_indices)//2}")
     
-    def _process_geometry(self):
-        """Procesa la geometría una sola vez al inicio"""
-
-        triangles = []
-        edges = set()
-        
-        for elem in self.elements:
-            elem_triangles = self._element_to_triangles(elem)
-            triangles.extend(elem_triangles)
-            
-            for tri in elem_triangles:
-                edges.update([
-                    tuple(sorted((tri[0], tri[1]))),
-                    tuple(sorted((tri[1], tri[2]))),
-                    tuple(sorted((tri[2], tri[0])))
-                ])
-        
-        self.triangle_indices = np.array(triangles, dtype=np.uint32).flatten()
-        self.line_indices = np.array([list(edge) for edge in edges], dtype=np.uint32).flatten()
+    def _prepare_line_buffer(self):
+        """Prepara el buffer de vértices para líneas"""
         self.line_vertices_buffer = np.zeros(len(self.line_indices) * 3, dtype=np.float32)
+        self._update_line_vertices_buffer()
     
-    def _element_to_triangles(self, elem):
-        """Convierte un elemento en triángulos según su tipo"""
-        elem_len = len(elem)
-        
-        if elem_len == 3:
-            return [elem]
-        elif elem_len == 4:
-            if self._is_3d_element(elem):
-                return self._tetrahedron_faces(elem)
-            else:
-                return [[elem[0], elem[1], elem[2]], [elem[0], elem[2], elem[3]]]
-        elif elem_len == 8:
-            return self._hexahedron_faces(elem)
-        elif elem_len > 4:
-            return [[elem[0], elem[i], elem[i+1]] for i in range(1, elem_len-1)]
-        else:
-            return []
-    
-    def _is_3d_element(self, elem):
-        """Determina si un elemento de 4 nodos es 3D (tetraedro) o 2D (cuadrilátero)"""
-        try:
-            coords = self.coords_array[elem]
-            v1, v2, v3 = coords[1:4] - coords[0]
-            volume = abs(np.dot(v1, np.cross(v2, v3))) / 6.0
-            return volume > 1e-10
-        except:
-            return False
-    
-    def _tetrahedron_faces(self, elem):
-        """Caras de un tetraedro"""
-        return [
-            [elem[0], elem[1], elem[2]], [elem[0], elem[1], elem[3]],
-            [elem[0], elem[2], elem[3]], [elem[1], elem[2], elem[3]]
-        ]
-    
-    def _hexahedron_faces(self, elem):
-        """Caras de un hexaedro"""
-        return [
-            [elem[0], elem[1], elem[2]], [elem[0], elem[2], elem[3]],
-            [elem[4], elem[5], elem[6]], [elem[4], elem[6], elem[7]],
-            [elem[0], elem[3], elem[7]], [elem[0], elem[7], elem[4]],
-            [elem[1], elem[2], elem[6]], [elem[1], elem[6], elem[5]],
-            [elem[0], elem[1], elem[5]], [elem[0], elem[5], elem[4]],
-            [elem[3], elem[2], elem[6]], [elem[3], elem[6], elem[7]]
-        ]
+    def _update_line_vertices_buffer(self):
+        """Actualiza el buffer de vértices de líneas basado en coordenadas actuales"""
+        coords_flat = self.coords_array[self.line_indices].flatten()
+        self.line_vertices_buffer[:] = coords_flat
     
     def _create_shaders(self):
         """Crea todos los shaders necesarios"""
@@ -239,18 +180,11 @@ class OpenGLWidget(QOpenGLWidget):
         line_buf['vbo'] = glGenBuffers(1)
         line_buf['count'] = len(self.line_indices)
         
-        self._update_line_vertices_buffer()
-        
         glBindVertexArray(line_buf['vao'])
         glBindBuffer(GL_ARRAY_BUFFER, line_buf['vbo'])
         glBufferData(GL_ARRAY_BUFFER, self.line_vertices_buffer.nbytes, self.line_vertices_buffer, GL_DYNAMIC_DRAW)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
         glEnableVertexAttribArray(0)
-    
-    def _update_line_vertices_buffer(self):
-        """Actualiza el buffer de vértices de líneas basado en coordenadas actuales"""
-        coords_flat = self.coords_array[self.line_indices].flatten()
-        self.line_vertices_buffer[:] = coords_flat
     
     def _setup_camera(self):
         """Configura la cámara basada en el modelo"""

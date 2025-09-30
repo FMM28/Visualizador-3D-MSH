@@ -7,9 +7,10 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from msh import Lector
 from OpenGLWidget import OpenGLWidget
+from malla import filtrar_elementos_visibles, flatten
 
 class MainWindow(QMainWindow):
-    def __init__(self, coords, elements, desplazamientos=None):
+    def __init__(self, coords, elements, lines, desplazamientos=None):
         super().__init__()
         self.setWindowTitle("Visualizador 3D")
         self.setGeometry(100, 100, 1200, 800)
@@ -53,7 +54,8 @@ class MainWindow(QMainWindow):
         # --- Widget OpenGL ---
         self.gl_widget = OpenGLWidget(
             self.current_coords.tolist(),
-            self.elements.tolist() if hasattr(self.elements, 'tolist') else self.elements
+            self.elements.tolist() if hasattr(self.elements, 'tolist') else self.elements,
+            lines.tolist() if hasattr(lines, 'tolist') else lines
         )
 
         # --- Modo de visualización ---
@@ -194,8 +196,10 @@ if __name__ == '__main__':
     doc = lector.obtener_modelo(-1)
     coords, elements = doc["msh"]
     desplazamientos = doc["res"].get("desplazamientos")
+    
+    coords, elements, lines = flatten(coords, elements)
 
     app = QApplication(sys.argv)
-    window = MainWindow(coords, elements, desplazamientos)
+    window = MainWindow(coords, elements, lines, desplazamientos)
     window.show()
     sys.exit(app.exec())
