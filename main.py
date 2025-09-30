@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from msh import Lector
 from OpenGLWidget import OpenGLWidget
-from malla import filtrar_elementos_visibles, flatten
+from malla import filtrar_elementos_visibles, mapear_desplazamientos
 
 class MainWindow(QMainWindow):
     def __init__(self, coords, elements, lines, desplazamientos=None):
@@ -17,22 +17,11 @@ class MainWindow(QMainWindow):
         self.showMaximized()
 
         self.original_coords = coords.copy() if isinstance(coords, np.ndarray) else np.array(coords)
-        self.elements = elements
         
-        self.disp_array = None
-        self.disp_ids = None
+        self.disp_array = desplazamientos
         
-        if desplazamientos is not None:
-            self.disp_ids, disp_values = desplazamientos
-            
-            max_id = np.max(self.disp_ids) if len(self.disp_ids) > 0 else 0
-            self.disp_array = np.zeros((max_id, 3), dtype=np.float64)
-            
-            for i, node_id in enumerate(self.disp_ids):
-                if node_id <= max_id:
-                    self.disp_array[node_id-1] = disp_values[i]
-                    
-            print(f"Desplazamientos cargados: {len(self.disp_ids)} nodos")
+        if self.disp_array is not None:
+            print(f"Desplazamientos configurados para {len(self.disp_array)} nodos visibles")
         else:
             print("No hay desplazamientos disponibles.")
 
@@ -54,8 +43,8 @@ class MainWindow(QMainWindow):
         # --- Widget OpenGL ---
         self.gl_widget = OpenGLWidget(
             self.current_coords.tolist(),
-            self.elements.tolist() if hasattr(self.elements, 'tolist') else self.elements,
-            lines.tolist() if hasattr(lines, 'tolist') else lines
+            triangle_indices.tolist() if hasattr(triangle_indices, 'tolist') else triangle_indices,
+            line_indices.tolist() if hasattr(line_indices, 'tolist') else line_indices
         )
 
         # --- Modo de visualización ---
@@ -194,12 +183,16 @@ if __name__ == '__main__':
     print("Total de modelos:", lector.total_modelos)
 
     doc = lector.obtener_modelo(-1)
-    coords, elements = doc["msh"]
-    desplazamientos = doc["res"].get("desplazamientos")
+    coords_original, elements_original = doc["msh"]
+    desplazamientos_original = doc["res"].get("desplazamientos")
     
-    coords, elements, lines = flatten(coords, elements)
+    # Filtrar solo superficie visible
+    coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords_original, elements_original)
+    
+    # Mapear desplazamientos a nodos visibles
+    desplazamientos = mapear_desplazamientos(desplazamientos_original, node_map)
 
     app = QApplication(sys.argv)
-    window = MainWindow(coords, elements, lines, desplazamientos)
+    window = MainWindow(coords, triangle_indices, line_indices, desplazamientos)
     window.show()
     sys.exit(app.exec())
