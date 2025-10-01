@@ -5,7 +5,7 @@ from pyrr import Matrix44
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QSurfaceFormat
-from cameraController import Camera
+from .cameraController import Camera
 
 class OpenGLWidget(QOpenGLWidget):
     # Constantes de shader
