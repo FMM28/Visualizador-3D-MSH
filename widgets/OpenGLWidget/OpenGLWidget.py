@@ -57,6 +57,10 @@ class OpenGLWidget(QOpenGLWidget):
         
         self.gl_initialized = True
         
+        self.set_line_color((1.0,0.0,0.0,1.0))
+        self.set_bg_color((0.098, 0.098, 0.098))
+        self.set_solid_color((0.196, 0.196, 0.196, 1.0))
+        
         coords = self.buffer_manager.get_coords()
         print(f"Inicialización completa. Vértices: {len(coords)}, "
               f"Triángulos: {len(self.buffer_manager.triangle_indices)//3}, "
@@ -140,14 +144,20 @@ class OpenGLWidget(QOpenGLWidget):
         """Establece el grosor de línea"""
         self.renderer.set_line_width(width)
         self.update()
+        
+    def set_line_color(self,color):
+        """Establece el color de línea"""
+        self.renderer.set_line_color(color)
+        self.update()
+        
+    def set_solid_color(self,color):
+        """Establece el color de solid"""
+        self.renderer.set_solid_color(color)
+        self.update()   
     
     def set_bg_color(self, color):
         """Establece el color de fondo"""
-        if hasattr(color, 'redF'):  # Es un QColor
-            rgb = (color.redF(), color.greenF(), color.blueF())
-        else:
-            rgb = color
-        self.renderer.set_bg_color(rgb)
+        self.renderer.set_bg_color(color)
         self.update()
     
     def reset_camera(self):

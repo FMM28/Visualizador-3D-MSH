@@ -65,17 +65,19 @@ class ShaderManager:
     # Fragment Shaders
     FRAGMENT_SHADER_SOLID = """
     #version 330 core
+    uniform vec4 solid_color;
     out vec4 frag_color;
     void main() {
-        frag_color = vec4(0.2, 0.2, 0.2, 1.0);
+        frag_color = solid_color;
     }
     """
     
     FRAGMENT_SHADER_LINE = """
     #version 330 core
+    uniform vec4 line_color;
     out vec4 frag_color;
     void main() {
-        frag_color = vec4(1.0, 0.2, 0.2, 1.0);
+        frag_color = line_color;
     }
     """
     
@@ -145,6 +147,12 @@ class ShaderManager:
         loc = glGetUniformLocation(program, name)
         if loc != -1:
             glUniform1f(loc, value)
+            
+    def set_uniform_4f(self, program, name, values):
+        """Establece un uniform de tipo vec4"""
+        loc = glGetUniformLocation(program, name)
+        if loc != -1:
+            glUniform4f(loc, *values)
     
     def set_uniform_1i(self, program, name, value):
         """Establece un uniform de tipo int"""

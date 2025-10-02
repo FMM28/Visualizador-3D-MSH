@@ -121,6 +121,16 @@ class Renderer:
     def set_line_width(self, width):
         """Establece el grosor de línea"""
         self.line_width = max(0.1, width)
+        
+    def set_line_color(self,color):
+        """Establece el color de línea"""
+        program = self.shader_manager.use_program("line")
+        self.shader_manager.set_uniform_4f(program,"line_color",color)
+        
+    def set_solid_color(self,color):
+        """Establece el color de solido"""
+        program = self.shader_manager.use_program("solid")
+        self.shader_manager.set_uniform_4f(program,"solid_color",color)
     
     def set_bg_color(self, color):
         """Establece el color de fondo (tuple RGB)"""
