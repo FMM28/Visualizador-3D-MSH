@@ -180,7 +180,6 @@ class DisplacementsPage(QWidget):
         
         if is_checked:
             if self.gl_widget:
-                self.gl_widget.set_color_palette("viridis")
                 self.gl_widget.enable_gradient(True)
             self._update_gradient_values()
         else:

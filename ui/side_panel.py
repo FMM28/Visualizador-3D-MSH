@@ -8,7 +8,7 @@ from PyQt6.QtGui import QIcon
 from .styles import SIDE_PANEL_STYLE, ICON_BAR_STYLE, STACKED_WIDGET_STYLE
 from .visualizacion import VisualizationPage
 from .desplazamientos import DisplacementsPage
-
+from .paleta import PaletaPage
 
 class SidePanel(QWidget):
     def __init__(self, gl_widget,disp_array = None):
@@ -38,9 +38,11 @@ class SidePanel(QWidget):
         # Crear y añadir páginas
         self.visualization_page = VisualizationPage(self.gl_widget)
         self.displacements_page = DisplacementsPage(self.gl_widget,self.disp_array)
+        self.palette_page = PaletaPage(self.gl_widget)
         
         self.content_stack.addWidget(self.visualization_page)
         self.content_stack.addWidget(self.displacements_page)
+        self.content_stack.addWidget(self.palette_page)
     
     def _create_icon_bar(self):
         """Crea la barra lateral de iconos"""
@@ -69,6 +71,14 @@ class SidePanel(QWidget):
             lambda: self._switch_page(1)
         )
         icon_layout.addWidget(self.disp_btn)
+        
+        # Botón de Paleta
+        self.pal_btn = self._create_icon_button(
+            "icons/paleta.svg",
+            "Paleta",
+            lambda: self._switch_page(2)
+        )
+        icon_layout.addWidget(self.pal_btn)
 
         icon_layout.addStretch()
 
@@ -90,12 +100,15 @@ class SidePanel(QWidget):
         # Desmarcar todos los botones
         self.vis_btn.setChecked(False)
         self.disp_btn.setChecked(False)
+        self.pal_btn.setChecked(False)
         
         # Marcar el botón correspondiente
         if page_index == 0:
             self.vis_btn.setChecked(True)
         elif page_index == 1:
             self.disp_btn.setChecked(True)
+        elif page_index == 2:
+            self.pal_btn.setChecked(True)
         
         # Cambiar de página
         self.content_stack.setCurrentIndex(page_index)

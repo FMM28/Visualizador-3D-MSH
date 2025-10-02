@@ -179,11 +179,7 @@ class OpenGLWidget(QOpenGLWidget):
     def set_color_palette(self, palette_name):
         """Cambia la paleta de colores."""
         if self.colormap_manager.set_palette(palette_name):
-            print(f"Paleta cambiada a: {palette_name}")
             self.update()
-        else:
-            available = self.colormap_manager.get_available_palettes()
-            print(f"Paleta '{palette_name}' no encontrada. Disponibles: {available}")
     
     def enable_gradient(self, enabled=True):
         """Habilita o deshabilita el renderizado con gradientes."""

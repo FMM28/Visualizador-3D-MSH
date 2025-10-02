@@ -109,6 +109,10 @@ class ColormapManager:
         """Retorna la lista de paletas disponibles"""
         return list(self.COLOR_PALETTES.keys())
     
+    def get_palette_colors(self, palette_name):
+        """Retorna los colores de una paleta específica"""
+        return self.COLOR_PALETTES.get(palette_name, None)
+    
     def bind_texture(self, texture_unit=0):
         """Enlaza la textura a una unidad de textura"""
         if self.texture:

@@ -206,6 +206,26 @@ AXIS_BUTTON_STYLE = """
     }
 """
 
+# Estilo de botones de paleta
+PALETTE_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #2d2d2d;
+        border: 2px solid #404040;
+        border-radius: 6px;
+        padding: 6px;
+        text-align: left;
+    }
+    QPushButton:hover {
+        background-color: #353535;
+        border-color: #4a90e2;
+    }
+    QPushButton:checked {
+        background-color: #3a3a3a;
+        border-color: #4a90e2;
+        border-width: 3px;
+    }
+"""
+
 # Estilo de label de rango
 RANGE_LABEL_STYLE = """
     font-size: 10px; 
@@ -224,6 +244,47 @@ STACKED_WIDGET_STYLE = """
     }
 """
 
+# Estilo de ScrollArea
+SCROLL_AREA_STYLE = """
+    QScrollArea {
+        border: none;
+        background-color: transparent;
+    }
+    QScrollBar:vertical {
+        background-color: #2d2d2d;
+        width: 12px;
+        border-radius: 6px;
+    }
+    QScrollBar::handle:vertical {
+        background-color: #4a4a4a;
+        border-radius: 6px;
+        min-height: 20px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background-color: #5a5a5a;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+    }
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+        background: none;
+    }
+"""
+
+# Estilo para etiquetas de nombre de paleta
+PALETTE_NAME_LABEL_STYLE = """
+    font-size: 11px; 
+    font-weight: 600; 
+    color: #e0e0e0;
+    background-color: transparent;
+    border: none;
+    padding: 0px;
+"""
+
+# Estilo completo para la página de paletas
+PALETTE_PAGE_STYLE = PAGE_CONTENT_STYLE + SCROLL_AREA_STYLE
+
+# Mantener compatibilidad con código existente
 def get_page_style():
     """Retorna el estilo completo para una página"""
     return PAGE_CONTENT_STYLE + COMBOBOX_STYLE + SLIDER_STYLE + CHECKBOX_STYLE

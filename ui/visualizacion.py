@@ -70,7 +70,7 @@ class VisualizationPage(QWidget):
         width_layout = QVBoxLayout(width_group)
         width_layout.setSpacing(8)
 
-        initial_width = getattr(self.gl_widget, 'line_width', 2.0)
+        initial_width = getattr(self.gl_widget, 'line_width', 1.0)
         self.width_label = QLabel(f"Grosor: {initial_width:.1f} px")
         self.width_label.setStyleSheet("font-size: 11px; color: #e0e0e0; font-weight: 600;")
         width_layout.addWidget(self.width_label)
