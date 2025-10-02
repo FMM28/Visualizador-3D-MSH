@@ -93,7 +93,7 @@ class DisplacementsPage(QWidget):
         layout.setSpacing(10)
 
         # Checkbox principal
-        self.gradient_checkbox = QCheckBox("Mostrar gradientes de desplazamiento")
+        self.gradient_checkbox = QCheckBox("Mostrar gradientes")
         self.gradient_checkbox.stateChanged.connect(self._on_toggle_gradient)
         layout.addWidget(self.gradient_checkbox)
         layout.addWidget(self._create_separator())
