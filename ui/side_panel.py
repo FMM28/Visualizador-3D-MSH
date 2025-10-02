@@ -11,10 +11,10 @@ from .desplazamientos import DisplacementsPage
 
 
 class SidePanel(QWidget):
-    def __init__(self, gl_widget, has_displacements=False):
+    def __init__(self, gl_widget,disp_array = None):
         super().__init__()
         self.gl_widget = gl_widget
-        self.has_displacements = has_displacements
+        self.disp_array = disp_array
         self._setup_ui()
     
     def _setup_ui(self):
@@ -37,7 +37,7 @@ class SidePanel(QWidget):
 
         # Crear y añadir páginas
         self.visualization_page = VisualizationPage(self.gl_widget)
-        self.displacements_page = DisplacementsPage(self.has_displacements)
+        self.displacements_page = DisplacementsPage(self.gl_widget,self.disp_array)
         
         self.content_stack.addWidget(self.visualization_page)
         self.content_stack.addWidget(self.displacements_page)

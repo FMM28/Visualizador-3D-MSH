@@ -43,8 +43,7 @@ class MainWindow(QMainWindow):
         )
 
         # Panel lateral
-        has_displacements = self.disp_array is not None
-        self.side_panel = SidePanel(self.gl_widget, has_displacements)
+        self.side_panel = SidePanel(self.gl_widget,self.disp_array)
         
         # Añadir widgets al layout
         main_layout.addWidget(self.side_panel)

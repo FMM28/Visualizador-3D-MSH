@@ -180,6 +180,42 @@ BUTTON_STYLE = """
     }
 """
 
+# Estilo de botones de eje
+AXIS_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #2a2a2a;
+        border: 2px solid #404040;
+        border-radius: 4px;
+        color: #e0e0e0;
+        font-weight: 600;
+        padding: 6px 12px;
+    }
+    QPushButton:checked {
+        background-color: #0d7377;
+        border-color: #14FFEC;
+        color: #ffffff;
+    }
+    QPushButton:hover:!checked {
+        background-color: #353535;
+        border-color: #505050;
+    }
+    QPushButton:disabled {
+        background-color: #1a1a1a;
+        color: #555555;
+        border-color: #2a2a2a;
+    }
+"""
+
+# Estilo de label de rango
+RANGE_LABEL_STYLE = """
+    font-size: 10px; 
+    color: #888888; 
+    padding: 8px;
+    background-color: #1a1a1a;
+    border-radius: 3px;
+    margin-top: 8px;
+"""
+
 # Estilo del StackedWidget
 STACKED_WIDGET_STYLE = """
     QStackedWidget {
@@ -188,7 +224,6 @@ STACKED_WIDGET_STYLE = """
     }
 """
 
-# Combinar estilos comunes
 def get_page_style():
     """Retorna el estilo completo para una página"""
     return PAGE_CONTENT_STYLE + COMBOBOX_STYLE + SLIDER_STYLE + CHECKBOX_STYLE
