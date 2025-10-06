@@ -143,7 +143,7 @@ class DisplacementsPage(QWidget):
             btn.setChecked(axis == 'x')
             btn.setMinimumHeight(32)
             btn.setStyleSheet(button_style)
-            btn.setEnabled(enabled)
+            btn.setEnabled(bool(enabled))
             btn.clicked.connect(lambda checked, a=axis: self._on_axis_changed(a))
             
             if not enabled and axis == 'z':
@@ -159,7 +159,7 @@ class DisplacementsPage(QWidget):
         """Habilita o deshabilita los botones de selección de eje"""
         self.btn_x.setEnabled(enabled)
         self.btn_y.setEnabled(enabled)
-        self.btn_z.setEnabled(enabled and self.is_3d)
+        self.btn_z.setEnabled(bool(enabled and self.is_3d))
     
     # Slots para eventos
     def _on_toggle_displacements(self, state):
