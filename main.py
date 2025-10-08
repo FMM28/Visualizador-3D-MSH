@@ -1,6 +1,6 @@
 import sys
 from PyQt6.QtWidgets import QApplication
-from utils import Lector, filtrar_elementos_visibles, mapear_desplazamientos
+from utils import Lector, filtrar_elementos_visibles, mapear_nodos
 from main_window import MainWindow
 
 def main():
@@ -12,14 +12,14 @@ def main():
 
     # Obtener modelo
     doc = lector.obtener_modelo(-1)
-    coords_original, elements_original = doc["msh"]
-    desplazamientos_original = doc["res"].get("desplazamientos")
+    coords, elements = doc["msh"]
+    desplazamientos = doc["res"].get("desplazamientos")
     
     # Filtrar solo superficie visible
-    coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords_original, elements_original)
+    coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords, elements)
     
     # Mapear desplazamientos a nodos visibles
-    desplazamientos = mapear_desplazamientos(desplazamientos_original, node_map)
+    desplazamientos = mapear_nodos(desplazamientos, node_map)
 
     # Crear aplicación
     app = QApplication(sys.argv)

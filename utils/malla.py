@@ -68,12 +68,12 @@ def filtrar_elementos_visibles(coords, elements):
     
     return coords_surface, triangle_indices, line_indices, node_map
 
-def mapear_desplazamientos(desplazamientos, node_map):
+def mapear_nodos(nodos, node_map):
     """
-    Mapea los desplazamientos de nodos originales a nodos visibles.
+    Mapea los nodos originales a nodos visibles.
     """
     
-    node_ids, disp_values = desplazamientos
+    node_ids, disp_values = nodos
 
     disp_dict = {}
     for i, node_id in enumerate(node_ids):
@@ -82,18 +82,10 @@ def mapear_desplazamientos(desplazamientos, node_map):
     num_visible_nodes = len(node_map)
     disp_array = np.zeros((num_visible_nodes, 3), dtype=np.float64)
     
-    nodes_with_disp = 0
     for old_idx, new_idx in node_map.items():
         node_id = old_idx + 1
         
         if node_id in disp_dict:
             disp_array[new_idx] = disp_dict[node_id]
-            nodes_with_disp += 1
-    
-    print(f"Desplazamientos mapeados: {len(node_ids)} totales -> {nodes_with_disp} nodos visibles con desplazamiento")
-    
-    if nodes_with_disp == 0:
-        print("Advertencia: Ningún desplazamiento corresponde a nodos visibles")
-        return None
     
     return disp_array
