@@ -281,6 +281,107 @@ PALETTE_NAME_LABEL_STYLE = """
     padding: 0px;
 """
 
+# Estilos para la página de archivos
+FILE_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #2d2d2d;
+        color: #e0e0e0;
+        border: 1px solid #404040;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        text-align: left;
+    }
+    QPushButton:hover {
+        background-color: #353535;
+        border-color: #505050;
+    }
+    QPushButton:checked {
+        background-color: #0d7dd6;
+        border-color: #0d7dd6;
+        color: #ffffff;
+    }
+"""
+
+FOLDER_SELECT_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #3a3a3a;
+        color: #e0e0e0;
+        border: 1px solid #505050;
+        padding: 10px 16px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+    QPushButton:hover {
+        background-color: #454545;
+        border-color: #606060;
+    }
+    QPushButton:pressed {
+        background-color: #2a2a2a;
+    }
+"""
+
+FILE_INFO_LABEL_STYLE = """
+    QLabel {
+        font-size: 11px;
+        color: #b0b0b0;
+        padding: 8px;
+        background-color: #252525;
+        border-radius: 3px;
+        border: none;
+    }
+"""
+
+FILE_SCROLL_AREA_STYLE = """
+    QScrollArea {
+        border: none;
+        background-color: transparent;
+    }
+    QScrollBar:vertical {
+        background-color: transparent;
+        width: 8px;
+        margin: 0px;
+    }
+    QScrollBar::handle:vertical {
+        background-color: #4a4a4a;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background-color: #5a5a5a;
+    }
+    QScrollBar::add-line:vertical,
+    QScrollBar::sub-line:vertical {
+        height: 0px;
+    }
+    QScrollBar::add-page:vertical,
+    QScrollBar::sub-page:vertical {
+        background: transparent;
+    }
+    QScrollBar:horizontal {
+        background-color: transparent;
+        height: 8px;
+        margin: 0px;
+    }
+    QScrollBar::handle:horizontal {
+        background-color: #4a4a4a;
+        border-radius: 4px;
+        min-width: 30px;
+    }
+    QScrollBar::handle:horizontal:hover {
+        background-color: #5a5a5a;
+    }
+    QScrollBar::add-line:horizontal,
+    QScrollBar::sub-line:horizontal {
+        width: 0px;
+    }
+    QScrollBar::add-page:horizontal,
+    QScrollBar::sub-page:horizontal {
+        background: transparent;
+    }
+"""
+
 # Estilo completo para la página de paletas
 PALETTE_PAGE_STYLE = PAGE_CONTENT_STYLE + SCROLL_AREA_STYLE
 

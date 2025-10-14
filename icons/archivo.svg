@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="256"
+   height="256"
+   viewBox="0 0 67.733332 67.733333"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   sodipodi:docname="archivo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#b8ae8f"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="2.6958228"
+     inkscape:cx="148.74865"
+     inkscape:cy="141.51524"
+     inkscape:window-width="1920"
+     inkscape:window-height="1052"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g10" />
+  <defs
+     id="defs1">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 33.866667 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="67.733332 : 33.866667 : 1"
+       inkscape:persp3d-origin="33.866666 : 22.577778 : 1"
+       id="perspective2" />
+  </defs>
+  <g
+     inkscape:label="Capa 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g10"
+       transform="translate(0,-3.9201407)">
+      <path
+         id="rect1"
+         style="fill:#ffffff;stroke-width:0.485235;stroke-dasharray:1.45523, 1.45523;stroke-opacity:0.75"
+         d="M 19.470129,16.043948 10.054167,32.352513 V 59.529666 H 57.679166 V 32.352513 L 48.263203,16.043948 h -0.214457 -28.36416 z m 0.877466,1.520321 h 27.039176 l 7.659998,13.269474 H 50.696647 V 26.202501 H 48.596516 V 22.15882 H 46.184777 V 18.612267 H 21.548555 v 3.546553 h -2.411739 v 4.043681 h -2.10013 v 4.631242 H 12.687598 Z M 11.634949,33.933812 H 56.099417 V 57.9494 H 11.634949 Z m 15.617134,4.097941 2.615344,4.529956 h 0.05994 7.878589 0.05994 l 2.615345,-4.529956 h -5.290634 -2.6479 z" />
+    </g>
+  </g>
+</svg>

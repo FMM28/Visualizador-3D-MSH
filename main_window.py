@@ -3,12 +3,11 @@ Ventana principal de la aplicación
 """
 import numpy as np
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout
-from PyQt6.QtCore import Qt
 from widgets import OpenGLWidget
 from ui import SidePanel
 
 class MainWindow(QMainWindow):
-    def __init__(self, coords, triangle_indices, line_indices, desplazamientos=None):
+    def __init__(self, coords, triangle_indices, line_indices):
         super().__init__()
         self.setWindowTitle("Visualizador 3D")
         self.setGeometry(100, 100, 1200, 800)
@@ -16,15 +15,12 @@ class MainWindow(QMainWindow):
 
         # Datos del modelo
         self.original_coords = coords.copy() if isinstance(coords, np.ndarray) else np.array(coords)
-        self.current_coords = self.original_coords.copy()
-        self.disp_array = desplazamientos
 
         # Configurar UI
         self._setup_ui(triangle_indices, line_indices)
-        self._connect_signals()
         
         # Estado inicial
-        self._initialize_state()
+        self.gl_widget.set_mode("combined")
 
     def _setup_ui(self, triangle_indices, line_indices):
         """Configura la interfaz de usuario"""
@@ -37,58 +33,17 @@ class MainWindow(QMainWindow):
 
         # Widget OpenGL
         self.gl_widget = OpenGLWidget(
-            self.current_coords.tolist(),
+            self.original_coords.tolist(),
             triangle_indices.tolist() if hasattr(triangle_indices, 'tolist') else triangle_indices,
             line_indices.tolist() if hasattr(line_indices, 'tolist') else line_indices
         )
 
         # Panel lateral
-        self.side_panel = SidePanel(self.gl_widget,self.disp_array)
+        self.side_panel = SidePanel(self.gl_widget)
         
         # Añadir widgets al layout
         main_layout.addWidget(self.side_panel)
         main_layout.addWidget(self.gl_widget, 1)
-    
-    def _connect_signals(self):
-        """Conecta las señales de los componentes"""
-        disp_page = self.side_panel.get_displacements_page()
-        disp_page.displacements_toggled.connect(self._on_displacements_toggled)
-        disp_page.factor_changed.connect(self._on_factor_changed)
-    
-    def _initialize_state(self):
-        """Inicializa el estado de la aplicación"""
-        self.gl_widget.set_mode("combined")
         
-        # Inicializar desplazamientos si existen
-        disp_page = self.side_panel.get_displacements_page()
-        if disp_page.is_checked():
-            self._update_displacements(disp_page.get_factor())
-
-    # --- Métodos de control de desplazamientos ---
-    
-    def _on_displacements_toggled(self, state):
-        """Maneja la activación/desactivación de desplazamientos"""
-        if state == Qt.CheckState.Checked.value and self.disp_array is not None:
-            disp_page = self.side_panel.get_displacements_page()
-            self._update_displacements(disp_page.get_factor())
-        else:
-            self._reset_to_original()
-    
-    def _on_factor_changed(self, value):
-        """Maneja el cambio del factor de amplificación"""
-        disp_page = self.side_panel.get_displacements_page()
-        if disp_page.is_checked() and self.disp_array is not None:
-            self._update_displacements(value)
-    
-    def _update_displacements(self, factor):
-        """Actualiza las coordenadas con desplazamientos amplificados"""
-        if self.disp_array is None:
-            return
-        
-        self.current_coords = self.original_coords + factor * self.disp_array
-        self.gl_widget.update_coords(self.current_coords)
-    
-    def _reset_to_original(self):
-        """Restaura las coordenadas originales sin desplazamientos"""
-        self.current_coords = self.original_coords.copy()
-        self.gl_widget.update_coords(self.current_coords.tolist())
+    def set_data(self,original_coords, displacement_data):
+        self.side_panel.displacements_page.set_data(original_coords, displacement_data)
