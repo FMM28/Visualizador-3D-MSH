@@ -23,10 +23,15 @@ def main():
 
     # Crear aplicación
     app = QApplication(sys.argv)
-    window = MainWindow(coords, triangle_indices, line_indices)
+    
+    # Crear ventana e inicializar geometría
+    window = MainWindow()
+    window.initialize_geometry(coords, triangle_indices, line_indices)
     window.show()
     
-    window.set_data(coords,desplazamientos)
+    # Establecer datos de desplazamiento
+    window.set_data(coords, desplazamientos)
+    
     sys.exit(app.exec())
 
 if __name__ == '__main__':

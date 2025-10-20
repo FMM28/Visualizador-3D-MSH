@@ -7,11 +7,10 @@ from OpenGL.GL import *
 class BufferManager:
     """Gestiona los buffers OpenGL (VAO, VBO, IBO)"""
     
-    def __init__(self, coords, triangle_indices, line_indices):
-        self.coords_array = np.asarray(coords, dtype=np.float32)
-        self.triangle_indices = np.asarray(triangle_indices, dtype=np.uint32)
-        self.line_indices = np.asarray(line_indices, dtype=np.uint32)
-        
+    def __init__(self):
+        self.coords_array = None
+        self.triangle_indices = None
+        self.line_indices = None
         self.line_vertices_buffer = None
         self.buffers = self._init_buffer_structure()
     
@@ -23,8 +22,18 @@ class BufferManager:
             'gradient': {'vao': None, 'vbo_pos': None, 'vbo_val': None, 'ibo': None, 'count': 0}
         }
     
+    def initialize(self, coords, triangle_indices, line_indices):
+        """Inicializa el BufferManager con los datos de la geometría"""
+        self.coords_array = np.asarray(coords, dtype=np.float32)
+        self.triangle_indices = np.asarray(triangle_indices, dtype=np.uint32)
+        self.line_indices = np.asarray(line_indices, dtype=np.uint32)
+        return self
+    
     def create_all_buffers(self):
         """Crea todos los buffers OpenGL"""
+        if self.coords_array is None or self.triangle_indices is None or self.line_indices is None:
+            raise RuntimeError("BufferManager no ha sido inicializado. Llame a initialize() primero.")
+        
         self._prepare_line_buffer()
         self._create_solid_buffers()
         self._create_line_buffers()
@@ -105,6 +114,9 @@ class BufferManager:
     
     def update_coords(self, new_coords):
         """Actualiza las coordenadas de los vértices"""
+        if self.coords_array is None:
+            raise RuntimeError("BufferManager no ha sido inicializado.")
+        
         new_coords_array = np.asarray(new_coords, dtype=np.float32)
         if new_coords_array.shape != self.coords_array.shape:
             print(f"Error: Las nuevas coordenadas deben tener la misma forma que las originales")
@@ -132,6 +144,9 @@ class BufferManager:
     
     def update_gradient_values(self, values):
         """Actualiza los valores del gradiente"""
+        if self.coords_array is None:
+            raise RuntimeError("BufferManager no ha sido inicializado.")
+        
         values_array = np.asarray(values, dtype=np.float32)
         
         if len(values_array) != len(self.coords_array):

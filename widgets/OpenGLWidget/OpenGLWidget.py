@@ -12,13 +12,18 @@ from .modules import Camera,ShaderManager,ColormapManager,BufferManager,Renderer
 class OpenGLWidget(QOpenGLWidget):
     """Widget OpenGL para visualización de modelos 3D"""
     
-    def __init__(self, coords, triangle_indices, line_indices, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
         self.shader_manager = ShaderManager()
         self.colormap_manager = ColormapManager()
-        self.buffer_manager = BufferManager(coords, triangle_indices, line_indices)
+        self.buffer_manager = BufferManager()
         self.renderer = Renderer(self.shader_manager, self.buffer_manager, self.colormap_manager)
+        
+        # Datos de geometría
+        self.triangle_indices = None
+        self.line_indices = None
+        self.coords = None
         
         # Cámara
         self.camera = None
@@ -30,6 +35,7 @@ class OpenGLWidget(QOpenGLWidget):
         
         # Flags
         self.gl_initialized = False
+        self.geometry_initialized = False
         
         self._setup_opengl_format()
     
@@ -42,6 +48,33 @@ class OpenGLWidget(QOpenGLWidget):
         fmt.setDepthBufferSize(24)
         self.setFormat(fmt)
     
+    def initialize_geometry(self, coords, triangle_indices, line_indices):
+        """Inicializa la geometría del modelo"""
+        self.coords = coords
+        self.triangle_indices = triangle_indices
+        self.line_indices = line_indices
+        
+        # Si OpenGL ya está inicializado, crear buffers inmediatamente
+        if self.gl_initialized:
+            self._initialize_buffers_and_camera()
+        
+        self.geometry_initialized = True
+        return self
+    
+    def _initialize_buffers_and_camera(self):
+        """Inicializa buffers y cámara (llamado cuando ambos GL y geometría están listos)"""
+        if not self.geometry_initialized:
+            raise RuntimeError("Geometría no inicializada. Llame a initialize_geometry() primero.")
+        
+        self.buffer_manager.initialize(self.coords, self.triangle_indices, self.line_indices)
+        self.buffer_manager.create_all_buffers()
+        self._setup_camera()
+        
+        coords = self.buffer_manager.get_coords()
+        print(f"Buffers creados. Vértices: {len(coords)}, "
+              f"Triángulos: {len(self.buffer_manager.triangle_indices)//3}, "
+              f"Líneas: {len(self.buffer_manager.line_indices)//2}")
+    
     def initializeGL(self):
         """Inicializa OpenGL"""
         print("Inicializando OpenGL...")
@@ -49,22 +82,20 @@ class OpenGLWidget(QOpenGLWidget):
         # Configurar OpenGL
         self.renderer.setup_opengl()
         
-        # Crear recursos
+        # Crear recursos de shaders y texturas
         self.shader_manager.compile_all()
-        self.buffer_manager.create_all_buffers()
         self.colormap_manager.create_texture()
-        self._setup_camera()
         
         self.gl_initialized = True
+        
+        if self.geometry_initialized:
+            self._initialize_buffers_and_camera()
         
         self.set_line_color((1.0,0.0,0.0,1.0))
         self.set_bg_color((0.098, 0.098, 0.098))
         self.set_solid_color((0.196, 0.196, 0.196, 1.0))
         
-        coords = self.buffer_manager.get_coords()
-        print(f"Inicialización completa. Vértices: {len(coords)}, "
-              f"Triángulos: {len(self.buffer_manager.triangle_indices)//3}, "
-              f"Líneas: {len(self.buffer_manager.line_indices)//2}")
+        print("Inicialización OpenGL completa")
     
     def _setup_camera(self):
         """Configura la cámara basada en el modelo"""
@@ -76,7 +107,7 @@ class OpenGLWidget(QOpenGLWidget):
     
     def paintGL(self):
         """Renderiza la escena"""
-        if not self.camera:
+        if not self.camera or not self.geometry_initialized:
             return
         
         mvp_matrix = self._calculate_mvp_matrix()
@@ -170,6 +201,10 @@ class OpenGLWidget(QOpenGLWidget):
     
     def set_node_values(self, values, auto_range=True):
         """Establece los valores nodales para el gradiente"""
+        if not self.geometry_initialized:
+            print("Geometría no inicializada todavía")
+            return
+        
         values_array = np.asarray(values, dtype=np.float32)
         
         if not self.buffer_manager.update_gradient_values(values_array):
@@ -212,6 +247,10 @@ class OpenGLWidget(QOpenGLWidget):
     
     def update_coords(self, new_coords):
         """Actualiza solo las coordenadas de los vértices."""
+        if not self.geometry_initialized:
+            print("Geometría no inicializada todavía")
+            return
+        
         if not self.gl_initialized:
             print("OpenGL no está inicializado todavía")
             return
@@ -221,7 +260,7 @@ class OpenGLWidget(QOpenGLWidget):
     
     def update_camera_for_current_model(self):
         """Recalcula la cámara para el modelo actual"""
-        if self.gl_initialized:
+        if self.gl_initialized and self.geometry_initialized:
             self._setup_camera()
             self.update()
     
