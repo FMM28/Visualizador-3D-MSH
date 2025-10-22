@@ -31,11 +31,12 @@ class OpenGLWidget(QOpenGLWidget):
         # Estado
         self.last_x = 0
         self.last_y = 0
-        self.current_mode = "solid"
+        self.current_mode = "combined"
         
         # Flags
         self.gl_initialized = False
         self.geometry_initialized = False
+        self.buffers_created = False
         
         self._setup_opengl_format()
     
@@ -48,32 +49,50 @@ class OpenGLWidget(QOpenGLWidget):
         fmt.setDepthBufferSize(24)
         self.setFormat(fmt)
     
-    def initialize_geometry(self, coords, triangle_indices, line_indices):
+    def initialize_geometry(self, coords, triangle_indices, line_indices, reset_camera=True):
         """Inicializa la geometría del modelo"""
         self.coords = coords
         self.triangle_indices = triangle_indices
         self.line_indices = line_indices
         
-        # Si OpenGL ya está inicializado, crear buffers inmediatamente
-        if self.gl_initialized:
-            self._initialize_buffers_and_camera()
-        
         self.geometry_initialized = True
+        
+        if self.gl_initialized:
+            self.makeCurrent()
+            self._initialize_buffers_and_camera(reset_camera)
+            self.doneCurrent()
+        
         return self
     
-    def _initialize_buffers_and_camera(self):
+    def _initialize_buffers_and_camera(self, reset_camera=True):
         """Inicializa buffers y cámara (llamado cuando ambos GL y geometría están listos)"""
         if not self.geometry_initialized:
             raise RuntimeError("Geometría no inicializada. Llame a initialize_geometry() primero.")
         
+        if not self.gl_initialized:
+            print("Advertencia: OpenGL no inicializado todavía")
+            return
+        
+        # Limpiar buffers anteriores si existen
+        if self.buffers_created:
+            self.buffer_manager.cleanup()
+            self.buffers_created = False
+        
+        # Crear nuevos buffers
         self.buffer_manager.initialize(self.coords, self.triangle_indices, self.line_indices)
         self.buffer_manager.create_all_buffers()
-        self._setup_camera()
+        self.buffers_created = True
+        
+        # Solo resetear cámara si se solicita explícitamente
+        if reset_camera:
+            self._setup_camera()
         
         coords = self.buffer_manager.get_coords()
         print(f"Buffers creados. Vértices: {len(coords)}, "
               f"Triángulos: {len(self.buffer_manager.triangle_indices)//3}, "
               f"Líneas: {len(self.buffer_manager.line_indices)//2}")
+        
+        self.update()
     
     def initializeGL(self):
         """Inicializa OpenGL"""
@@ -89,9 +108,9 @@ class OpenGLWidget(QOpenGLWidget):
         self.gl_initialized = True
         
         if self.geometry_initialized:
-            self._initialize_buffers_and_camera()
+            self._initialize_buffers_and_camera(reset_camera=True)
         
-        self.set_line_color((1.0,0.0,0.0,1.0))
+        self.set_line_color((1.0, 0.0, 0.0, 1.0))
         self.set_bg_color((0.098, 0.098, 0.098))
         self.set_solid_color((0.196, 0.196, 0.196, 1.0))
         
@@ -107,7 +126,8 @@ class OpenGLWidget(QOpenGLWidget):
     
     def paintGL(self):
         """Renderiza la escena"""
-        if not self.camera or not self.geometry_initialized:
+        if not self.camera or not self.geometry_initialized or not self.buffers_created:
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             return
         
         mvp_matrix = self._calculate_mvp_matrix()
@@ -201,13 +221,17 @@ class OpenGLWidget(QOpenGLWidget):
     
     def set_node_values(self, values, auto_range=True):
         """Establece los valores nodales para el gradiente"""
-        if not self.geometry_initialized:
-            print("Geometría no inicializada todavía")
+        if not self.geometry_initialized or not self.buffers_created:
+            print("Geometría o buffers no inicializados todavía")
             return
         
         values_array = np.asarray(values, dtype=np.float32)
         
-        if not self.buffer_manager.update_gradient_values(values_array):
+        self.makeCurrent()
+        success = self.buffer_manager.update_gradient_values(values_array)
+        self.doneCurrent()
+        
+        if not success:
             return
         
         if auto_range:
@@ -239,29 +263,23 @@ class OpenGLWidget(QOpenGLWidget):
         """Retorna la lista de paletas disponibles"""
         return self.colormap_manager.get_available_palettes()
     
-    def get_value_range(self):
-        """Retorna el rango de valores actual (min, max)"""
-        return self.renderer.get_value_range()
-    
     # ============ Actualización de Geometría ============
     
     def update_coords(self, new_coords):
         """Actualiza solo las coordenadas de los vértices."""
-        if not self.geometry_initialized:
-            print("Geometría no inicializada todavía")
+        if not self.geometry_initialized or not self.buffers_created:
+            print("Geometría o buffers no inicializados todavía")
             return
         
         if not self.gl_initialized:
             print("OpenGL no está inicializado todavía")
             return
         
-        if self.buffer_manager.update_coords(new_coords):
-            self.update()
-    
-    def update_camera_for_current_model(self):
-        """Recalcula la cámara para el modelo actual"""
-        if self.gl_initialized and self.geometry_initialized:
-            self._setup_camera()
+        self.makeCurrent()
+        success = self.buffer_manager.update_coords(new_coords)
+        self.doneCurrent()
+        
+        if success:
             self.update()
     
     # ============ Limpieza ============
@@ -274,8 +292,12 @@ class OpenGLWidget(QOpenGLWidget):
     def cleanup(self):
         """Limpia todos los recursos OpenGL"""
         try:
-            self.buffer_manager.cleanup()
-            self.colormap_manager.cleanup()
+            if self.buffers_created:
+                self.makeCurrent()
+                self.buffer_manager.cleanup()
+                self.colormap_manager.cleanup()
+                self.doneCurrent()
+                self.buffers_created = False
             print("Recursos OpenGL liberados")
         except:
             pass

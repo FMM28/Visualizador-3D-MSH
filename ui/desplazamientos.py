@@ -253,7 +253,16 @@ class DisplacementsPage(QWidget):
             
         self.gl_widget.update_coords(self.original_coords.tolist())
     
-    # Métodos públicos
+    def _apply_current_state(self):
+        """Aplica el estado actual de los checkboxes y controles al nuevo modelo"""
+        # Aplicar desplazamientos si están activos
+        if self.disp_checkbox.isChecked():
+            self._update_displacements(self.factor_slider.value())
+        
+        # Aplicar gradientes si están activos
+        if self.gradient_checkbox.isChecked():
+            self._update_gradient_values()
+    
     def set_data(self, original_coords, displacement_data):
         """Establece los datos necesarios para manejar desplazamientos"""
         if displacement_data is None:
@@ -273,28 +282,13 @@ class DisplacementsPage(QWidget):
         if not self.is_3d:
             self.btn_z.setEnabled(False)
             self.btn_z.setToolTip("Modelo 2D - Sin desplazamientos en Z")
-    
-    def is_checked(self):
-        """Retorna si el checkbox está marcado"""
-        return self.disp_checkbox.isChecked()
-    
-    def get_factor(self):
-        """Retorna el valor actual del factor"""
-        return self.factor_slider.value()
-    
-    def is_gradient_enabled(self):
-        """Retorna si los gradientes están habilitados"""
-        return self.gradient_checkbox.isChecked()
-    
-    def set_gradient_enabled(self, enabled):
-        """Activa o desactiva los gradientes programáticamente"""
-        if not self._data_loaded:
-            return
-            
-        self.gradient_checkbox.setChecked(enabled)
-        self._set_axis_buttons_enabled(enabled)
-    
-    def is_data_loaded(self):
-        """Retorna si hay datos cargados"""
-        return self._data_loaded
-    
+            # Si el eje Z estaba seleccionado, cambiar a X
+            if self.current_axis == 'z':
+                self.current_axis = 'x'
+                self.btn_x.setChecked(True)
+        else:
+            if self.gradient_checkbox.isChecked():
+                self.btn_z.setEnabled(True)
+        
+        # Aplicar el estado guardado al nuevo modelo
+        self._apply_current_state()

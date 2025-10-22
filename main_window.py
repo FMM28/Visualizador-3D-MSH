@@ -12,17 +12,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Visualizador 3D")
         self.setGeometry(100, 100, 1200, 800)
         self.showMaximized()
-
-        # Datos del modelo
-        self.original_coords = None
-        self.triangle_indices = None
-        self.line_indices = None
+        
+        self.reset_camera_on_next_load = True
 
         # Configurar UI
         self._setup_ui()
-        
-        # Flag de inicialización
-        self.geometry_loaded = False
 
     def _setup_ui(self):
         """Configura la interfaz de usuario"""
@@ -39,35 +33,49 @@ class MainWindow(QMainWindow):
         # Panel lateral
         self.side_panel = SidePanel(self.gl_widget)
         
+        # Conectar señales
+        self.side_panel.archive_page.modelo_cargado.connect(self._on_modelo_cargado)
+        self.side_panel.archive_page.carpeta_cambiada.connect(self._on_carpeta_cambiada)
+        
         # Añadir widgets al layout
         main_layout.addWidget(self.side_panel)
         main_layout.addWidget(self.gl_widget, 1)
     
-    def initialize_geometry(self, coords, triangle_indices, line_indices):
-        """Inicializa la geometría del modelo"""
-        # Guardar datos originales
-        self.original_coords = coords.copy() if isinstance(coords, np.ndarray) else np.array(coords)
-        self.triangle_indices = triangle_indices
-        self.line_indices = line_indices
+    def _on_carpeta_cambiada(self):
+        """Callback cuando se cambia de carpeta"""
+        self.reset_camera_on_next_load = True
+    
+    def _on_modelo_cargado(self, datos_modelo):
+        """Callback cuando se carga un modelo desde ArchivePage"""
+        coords = datos_modelo['coords']
+        triangle_indices = datos_modelo['triangle_indices']
+        line_indices = datos_modelo['line_indices']
+        desplazamientos = datos_modelo['desplazamientos']
         
-        # Convertir a listas si es necesario
-        coords_list = self.original_coords.tolist()
+        # Convertir coords a numpy array si no lo es
+        if not isinstance(coords, np.ndarray):
+            coords = np.array(coords)
+        
+        # Convertir índices a listas para OpenGL
         tri_list = triangle_indices.tolist() if hasattr(triangle_indices, 'tolist') else triangle_indices
         line_list = line_indices.tolist() if hasattr(line_indices, 'tolist') else line_indices
         
-        # Inicializar widget OpenGL
-        self.gl_widget.initialize_geometry(coords_list, tri_list, line_list)
+        # Guardar el modo actual antes de inicializar
+        current_mode = self.gl_widget.current_mode
         
-        # Estado inicial
-        self.gl_widget.set_mode("combined")
+        # Inicializar widget OpenGL con flag de reset de cámara
+        self.gl_widget.initialize_geometry(
+            coords.tolist(), 
+            tri_list, 
+            line_list,
+            reset_camera=self.reset_camera_on_next_load
+        )
         
-        self.geometry_loaded = True
-        return self
+        # Después del primer modelo de la carpeta, no resetear más
+        self.reset_camera_on_next_load = False
         
-    def set_data(self, original_coords, displacement_data):
-        """Establece los datos de desplazamiento"""
-        if not self.geometry_loaded:
-            print("Advertencia: Geometría no inicializada. Llame a initialize_geometry() primero.")
-            return
+        # Restaurar el modo de visualización
+        self.gl_widget.set_mode(current_mode)
         
-        self.side_panel.displacements_page.set_data(original_coords, displacement_data)
+        # Establecer datos de desplazamientos
+        self.side_panel.displacements_page.set_data(coords, desplazamientos)

@@ -127,12 +127,3 @@ class SidePanel(QWidget):
         
         # Cambiar de página
         self.content_stack.setCurrentIndex(page_index)
-    
-    # Métodos públicos para acceder a las páginas
-    def get_visualization_page(self):
-        """Retorna la página de visualización"""
-        return self.visualization_page
-    
-    def get_displacements_page(self):
-        """Retorna la página de desplazamientos"""
-        return self.displacements_page

@@ -7,16 +7,19 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox,
 from PyQt6.QtCore import Qt, pyqtSignal
 from .styles import (get_page_style, FILE_BUTTON_STYLE, FOLDER_SELECT_BUTTON_STYLE, 
                      FILE_INFO_LABEL_STYLE, FILE_SCROLL_AREA_STYLE)
-from utils import Lector
+from utils import Lector, filtrar_elementos_visibles, mapear_nodos
 
 class ArchivePage(QWidget):
     archivo_seleccionado = pyqtSignal(str)
+    modelo_cargado = pyqtSignal(dict)
+    carpeta_cambiada = pyqtSignal()
     
     def __init__(self):
         super().__init__()
         self.lector = Lector()
         self.botones_archivos = QButtonGroup()
         self.botones_archivos.setExclusive(True)
+        self.carpeta_actual = None
         self._setup_ui()
     
     def _setup_ui(self):
@@ -88,6 +91,10 @@ class ArchivePage(QWidget):
     def _cargar_archivos_desde_carpeta(self, ruta):
         """Carga los archivos desde la carpeta seleccionada"""
         try:
+            # Detectar si cambió de carpeta
+            carpeta_cambio = (self.carpeta_actual != ruta)
+            self.carpeta_actual = ruta
+            
             self.lector.abrir_carpeta(ruta)
             self.label_ruta.setText(f"Carpeta seleccionada: {ruta}")
             
@@ -100,6 +107,10 @@ class ArchivePage(QWidget):
                 self.label_sin_archivos.hide()
                 self._crear_botones_archivos(archivos)
                 self.grupo_archivos.show()
+                
+                # Emitir señal solo si cambió de carpeta
+                if carpeta_cambio:
+                    self.carpeta_cambiada.emit()
             else:
                 self.label_sin_archivos.setText("No se encontraron archivos validos en la carpeta seleccionada")
                 self.label_sin_archivos.show()
@@ -124,28 +135,33 @@ class ArchivePage(QWidget):
     
     def _crear_botones_archivos(self, archivos):
         """Crea botones para cada archivo en la lista"""
-        for archivo in archivos:
+        for idx, archivo in enumerate(archivos):
             btn_archivo = QPushButton(archivo)
             btn_archivo.setStyleSheet(FILE_BUTTON_STYLE)
             btn_archivo.setCheckable(True)
-            btn_archivo.clicked.connect(lambda checked, a=archivo: self._on_archivo_seleccionado(a))
+            btn_archivo.clicked.connect(lambda checked, i=idx, a=archivo: self._on_archivo_seleccionado(i, a))
             
             self.layout_archivos.insertWidget(self.layout_archivos.count() - 1, btn_archivo)
             self.botones_archivos.addButton(btn_archivo)
     
-    def _on_archivo_seleccionado(self, archivo):
+    def _on_archivo_seleccionado(self, idx, archivo):
         """Maneja la selección de un archivo"""
         self.archivo_seleccionado.emit(archivo)
-    
-    def obtener_archivo_seleccionado(self):
-        """Retorna el archivo actualmente seleccionado"""
-        boton_seleccionado = self.botones_archivos.checkedButton()
-        if boton_seleccionado:
-            return boton_seleccionado.text()
-        return None
-    
-    def limpiar_seleccion(self):
-        """Limpia la selección actual de archivos"""
-        boton_seleccionado = self.botones_archivos.checkedButton()
-        if boton_seleccionado:
-            boton_seleccionado.setChecked(False)
+        
+        # Obtener modelo
+        doc = self.lector.obtener_modelo(idx)
+        coords, elements = doc["msh"]
+        desplazamientos = doc["res"].get("desplazamientos")
+        
+        # Filtrar elementos visibles
+        coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords, elements)
+        desplazamientos = mapear_nodos(desplazamientos, node_map)
+        
+        # Emitir señal con los datos procesados
+        datos_modelo = {
+            'coords': coords,
+            'triangle_indices': triangle_indices,
+            'line_indices': line_indices,
+            'desplazamientos': desplazamientos
+        }
+        self.modelo_cargado.emit(datos_modelo)
