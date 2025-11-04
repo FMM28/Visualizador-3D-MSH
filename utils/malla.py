@@ -95,20 +95,20 @@ def mapear_nodos(nodos, node_map):
     """
     Mapea los nodos originales a nodos visibles.
     """
-    
     node_ids, disp_values = nodos
-
-    disp_dict = {}
-    for i, node_id in enumerate(node_ids):
-        disp_dict[node_id] = disp_values[i]
     
-    num_visible_nodes = len(node_map)
-    disp_array = np.zeros((num_visible_nodes, 3), dtype=np.float64)
+    max_node_id = max(node_ids)
+    lookup = np.full((max_node_id + 1, 3), np.nan, dtype=np.float64)
+    lookup[node_ids] = disp_values
     
-    for old_idx, new_idx in node_map.items():
-        node_id = old_idx + 1
-        
-        if node_id in disp_dict:
-            disp_array[new_idx] = disp_dict[node_id]
+    disp_array = np.zeros((len(node_map), 3), dtype=np.float64)
+    old_indices = np.array(list(node_map.keys()))
+    new_indices = np.array(list(node_map.values()))
     
+    valid_mask = (old_indices + 1) <= max_node_id
+    valid_old = old_indices[valid_mask] + 1
+    valid_new = new_indices[valid_mask]
+    
+    disp_array[valid_new] = np.nan_to_num(lookup[valid_old], nan=0.0)
+            
     return disp_array
