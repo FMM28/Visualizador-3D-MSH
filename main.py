@@ -1,6 +1,5 @@
 import sys
 from PyQt6.QtWidgets import QApplication
-from utils import Lector, filtrar_elementos_visibles, mapear_nodos
 from main_window import MainWindow
 
 def main():

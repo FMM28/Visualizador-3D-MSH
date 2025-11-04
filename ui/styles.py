@@ -382,6 +382,28 @@ FILE_SCROLL_AREA_STYLE = """
     }
 """
 
+PROGRESS_DIALOG_STYLE = """
+    QProgressDialog {
+        font-size: 13px;
+    }
+    QProgressDialog QLabel {
+        font-size: 13px;
+        padding: 10px;
+        min-height: 40px;
+    }
+    QProgressBar {
+        border: 2px solid #3498db;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    QProgressBar::chunk {
+        background-color: #3498db;
+        border-radius: 3px;
+    }
+"""
+
 # Estilo completo para la página de paletas
 PALETTE_PAGE_STYLE = PAGE_CONTENT_STYLE + SCROLL_AREA_STYLE
 

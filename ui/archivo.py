@@ -1,12 +1,13 @@
 """
-Página de seleccion de archivos
+Página de selección de archivos con barra de progreso
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, 
                              QLabel, QPushButton,
-                             QButtonGroup, QFileDialog, QScrollArea)
+                             QButtonGroup, QFileDialog, QScrollArea,
+                             QProgressDialog, QApplication)
 from PyQt6.QtCore import Qt, pyqtSignal
 from .styles import (get_page_style, FILE_BUTTON_STYLE, FOLDER_SELECT_BUTTON_STYLE, 
-                     FILE_INFO_LABEL_STYLE, FILE_SCROLL_AREA_STYLE)
+                     FILE_INFO_LABEL_STYLE, FILE_SCROLL_AREA_STYLE, PROGRESS_DIALOG_STYLE)
 from utils import Lector, filtrar_elementos_visibles, mapear_nodos
 
 class ArchivePage(QWidget):
@@ -20,6 +21,8 @@ class ArchivePage(QWidget):
         self.botones_archivos = QButtonGroup()
         self.botones_archivos.setExclusive(True)
         self.carpeta_actual = None
+        self.archivo_actual = None
+        self.progress_dialog = None
         self._setup_ui()
     
     def _setup_ui(self):
@@ -81,6 +84,38 @@ class ArchivePage(QWidget):
         
         self.setStyleSheet(get_page_style())
     
+    def _mostrar_progreso(self, titulo, mensaje, max_value=0):
+        """Crea y muestra un diálogo de progreso modal"""
+        self.progress_dialog = QProgressDialog(mensaje, None, 0, max_value, self)
+        self.progress_dialog.setWindowTitle(titulo)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.setAutoReset(False)
+        self.progress_dialog.setMinimumDuration(0)
+        self.progress_dialog.setCancelButton(None)
+        
+        # Ajustar tamaño y estilo
+        self.progress_dialog.setMinimumWidth(400)
+        self.progress_dialog.setMinimumHeight(120)
+        self.progress_dialog.setStyleSheet(PROGRESS_DIALOG_STYLE)
+        
+        self.progress_dialog.show()
+        QApplication.processEvents()
+    
+    def _actualizar_progreso(self, valor, mensaje=None):
+        """Actualiza el valor y opcionalmente el mensaje del progreso"""
+        if self.progress_dialog:
+            self.progress_dialog.setValue(valor)
+            if mensaje:
+                self.progress_dialog.setLabelText(mensaje)
+            QApplication.processEvents()
+    
+    def _cerrar_progreso(self):
+        """Cierra el diálogo de progreso"""
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+    
     def _abrir_selector_carpeta(self):
         """Abre el diálogo para seleccionar carpeta"""
         ruta = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta","",QFileDialog.Option.ShowDirsOnly)
@@ -90,10 +125,17 @@ class ArchivePage(QWidget):
     
     def _cargar_archivos_desde_carpeta(self, ruta):
         """Carga los archivos desde la carpeta seleccionada"""
+        # Mostrar barra de progreso
+        self._mostrar_progreso("Cargando", "Escaneando carpeta...")
+        
         try:
             # Detectar si cambió de carpeta
             carpeta_cambio = (self.carpeta_actual != ruta)
             self.carpeta_actual = ruta
+            
+            # Si cambió de carpeta, resetear archivo actual
+            if carpeta_cambio:
+                self.archivo_actual = None
             
             self.lector.abrir_carpeta(ruta)
             self.label_ruta.setText(f"Carpeta seleccionada: {ruta}")
@@ -122,6 +164,8 @@ class ArchivePage(QWidget):
             self.label_sin_archivos.setText(f"Error: {str(e)}")
             self.label_sin_archivos.show()
             self.grupo_archivos.show()
+        finally:
+            self._cerrar_progreso()
     
     def _limpiar_botones_archivos(self):
         """Limpia todos los botones de archivos existentes, preservando label_sin_archivos"""
@@ -146,22 +190,46 @@ class ArchivePage(QWidget):
     
     def _on_archivo_seleccionado(self, idx, archivo):
         """Maneja la selección de un archivo"""
-        self.archivo_seleccionado.emit(archivo)
+
+        if self.archivo_actual == archivo:
+            return
         
-        # Obtener modelo
-        doc = self.lector.obtener_modelo(idx)
-        coords, elements = doc["msh"]
-        desplazamientos = doc["res"].get("desplazamientos")
+        self._mostrar_progreso("Cargando Modelo", f"Cargando {archivo}...", 100)
         
-        # Filtrar elementos visibles
-        coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords, elements)
-        desplazamientos = mapear_nodos(desplazamientos, node_map)
-        
-        # Emitir señal con los datos procesados
-        datos_modelo = {
-            'coords': coords,
-            'triangle_indices': triangle_indices,
-            'line_indices': line_indices,
-            'desplazamientos': desplazamientos
-        }
-        self.modelo_cargado.emit(datos_modelo)
+        try:
+            self._actualizar_progreso(20, f"Cargando {archivo}...")
+            self.archivo_seleccionado.emit(archivo)
+            
+            # Obtener modelo
+            self._actualizar_progreso(40, "Leyendo datos del archivo...")
+            doc = self.lector.obtener_modelo(idx)
+            coords, elements = doc["msh"]
+            desplazamientos = doc["res"].get("desplazamientos")
+            
+            # Filtrar elementos visibles
+            self._actualizar_progreso(60, "Procesando geometría...")
+            coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords, elements)
+            
+            self._actualizar_progreso(80, "Procesando desplazamientos...")
+            desplazamientos = mapear_nodos(desplazamientos, node_map)
+            
+            # Emitir señal con los datos procesados
+            self._actualizar_progreso(95, "Finalizando...")
+            datos_modelo = {
+                'coords': coords,
+                'triangle_indices': triangle_indices,
+                'line_indices': line_indices,
+                'desplazamientos': desplazamientos
+            }
+            self.modelo_cargado.emit(datos_modelo)
+            
+            self._actualizar_progreso(100, "¡Completado!")
+            
+            # Guardar archivo actual después de carga exitosa
+            self.archivo_actual = archivo
+            
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error", f"Error al cargar el modelo: {str(e)}")
+        finally:
+            self._cerrar_progreso()
