@@ -1,72 +1,95 @@
 import numpy as np
-from collections import defaultdict
+from collections import Counter
 
 def filtrar_elementos_visibles(coords, elements):
     """
     Filtra elementos para renderizar solo la superficie externa.
     """
     
-    TETRA_FACES = np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]], dtype=np.int32)
-    
     coords_array = np.asarray(coords, dtype=np.float32)
-    elements_int = [np.array(elem, dtype=np.int32) for elem in elements]
-
-    # Contador de caras: si una cara aparece 1 vez, es externa
-    face_count = defaultdict(int)
-    face_to_nodes = {}
     
-    triangles_surface = []
+    # Detectar tipo de geometria
+    n_nodes = len(elements[0])
     
-    for elem in elements_int:
-        n_nodes = len(elem)
+    # Caso 2D Triangulos
+    if n_nodes == 3:
+        triangles_array = np.array(elements, dtype=np.int32)
+        surface_nodes = np.unique(triangles_array.flatten())
         
-        if n_nodes == 3:    # Triángulo
-            triangles_surface.append(elem)
-            
-        elif n_nodes == 4:  # Tetraedro
-            for face_def in TETRA_FACES:
-                face_nodes = elem[face_def]
-                canonical_face = tuple(sorted(face_nodes))
-                face_count[canonical_face] += 1
-                face_to_nodes[canonical_face] = face_nodes
-    
-    for canonical_face, count in face_count.items():
-        if count == 1:  # Cara externa
-            triangles_surface.append(face_to_nodes[canonical_face])
-    
-    if len(triangles_surface) == 0:
-        print("Advertencia: No se encontraron triángulos de superficie")
-        return coords_array, np.array([], dtype=np.uint32), np.array([], dtype=np.uint32), {}
-    
-    # Identificar nodos únicos en la superficie
-    surface_nodes = set()
-    for tri in triangles_surface:
-        surface_nodes.update(tri)
-    
-    # Mapear índices originales a nuevos
-    surface_nodes_sorted = sorted(surface_nodes)
-    node_map = {old_idx: new_idx for new_idx, old_idx in enumerate(surface_nodes_sorted)}
-    
-    # Reindexar coordenadas
-    coords_surface = coords_array[surface_nodes_sorted]
-    
-    # Reindexar triángulos
-    triangles_reindexed = []
-    edges_set = set()
-    
-    for tri in triangles_surface:
-        new_tri = [node_map[node] for node in tri]
-        triangles_reindexed.append(new_tri)
+        # Crear mapeo
+        node_map_array = np.full(coords_array.shape[0], -1, dtype=np.int32)
+        node_map_array[surface_nodes] = np.arange(len(surface_nodes), dtype=np.int32)
+        
+        # Reindexar
+        coords_surface = coords_array[surface_nodes]
+        triangles_reindexed = node_map_array[triangles_array]
+        triangle_indices = triangles_reindexed.flatten().astype(np.uint32)
         
         # Extraer aristas
-        edges_set.add(tuple(sorted((new_tri[0], new_tri[1]))))
-        edges_set.add(tuple(sorted((new_tri[1], new_tri[2]))))
-        edges_set.add(tuple(sorted((new_tri[2], new_tri[0]))))
+        edges = np.concatenate([
+            triangles_reindexed[:, [0, 1]],
+            triangles_reindexed[:, [1, 2]],
+            triangles_reindexed[:, [2, 0]]
+        ], axis=0)
+        
+        edges_sorted = np.sort(edges, axis=1)
+        edges_complex = edges_sorted[:, 0] + 1j * edges_sorted[:, 1]
+        _, unique_indices = np.unique(edges_complex, return_index=True)
+        line_indices = edges_sorted[unique_indices].flatten().astype(np.uint32)
+        
+        node_map = {int(old_idx): int(new_idx) for new_idx, old_idx in enumerate(surface_nodes)}
+        return coords_surface, triangle_indices, line_indices, node_map
     
-    triangle_indices = np.array(triangles_reindexed, dtype=np.uint32).flatten()
-    line_indices = np.array(list(edges_set), dtype=np.uint32).flatten()
+    # Caso 3D Tetraedros
+    elif n_nodes == 4:
+        TETRA_FACES = np.array([[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]], dtype=np.int32)
+        
+        tetra_array = np.array(elements, dtype=np.int32)
+        
+        # Generar todas las caras vectorizadamente
+        all_faces = tetra_array[:, TETRA_FACES]
+        all_faces = all_faces.reshape(-1, 3)
+        
+        # Ordenar
+        faces_sorted = np.sort(all_faces, axis=1)
+        
+        # Contar caras usando Counter
+        faces_tuples = [tuple(face) for face in faces_sorted]
+        face_counts = Counter(faces_tuples)
+        
+        # Extraer solo caras externas
+        external_faces = [all_faces[i] for i, face_tuple in enumerate(faces_tuples) 
+                         if face_counts[face_tuple] == 1]
+        
+        triangles_array = np.array(external_faces, dtype=np.int32)
+        surface_nodes = np.unique(triangles_array.flatten())
+        
+        # Crear mapeo
+        node_map_array = np.full(coords_array.shape[0], -1, dtype=np.int32)
+        node_map_array[surface_nodes] = np.arange(len(surface_nodes), dtype=np.int32)
+        
+        # Reindexar
+        coords_surface = coords_array[surface_nodes]
+        triangles_reindexed = node_map_array[triangles_array]
+        triangle_indices = triangles_reindexed.flatten().astype(np.uint32)
+        
+        # Extraer aristas
+        edges = np.concatenate([
+            triangles_reindexed[:, [0, 1]],
+            triangles_reindexed[:, [1, 2]],
+            triangles_reindexed[:, [2, 0]]
+        ], axis=0)
+        
+        edges_sorted = np.sort(edges, axis=1)
+        edges_complex = edges_sorted[:, 0] + 1j * edges_sorted[:, 1]
+        _, unique_indices = np.unique(edges_complex, return_index=True)
+        line_indices = edges_sorted[unique_indices].flatten().astype(np.uint32)
+        
+        node_map = {int(old_idx): int(new_idx) for new_idx, old_idx in enumerate(surface_nodes)}
+        return coords_surface, triangle_indices, line_indices, node_map
     
-    return coords_surface, triangle_indices, line_indices, node_map
+    else:
+        raise ValueError(f"Tipo de elemento no soportado: {n_nodes} nodos")
 
 def mapear_nodos(nodos, node_map):
     """
