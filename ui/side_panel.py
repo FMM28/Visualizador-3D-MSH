@@ -10,6 +10,7 @@ from .visualizacion import VisualizationPage
 from .desplazamientos import DisplacementsPage
 from .paleta import PaletaPage
 from .archivo import ArchivePage
+from .imagen import ImagePage
 
 class SidePanel(QWidget):
     def __init__(self, gl_widget):
@@ -40,11 +41,15 @@ class SidePanel(QWidget):
         self.visualization_page = VisualizationPage(self.gl_widget)
         self.displacements_page = DisplacementsPage(self.gl_widget)
         self.palette_page = PaletaPage(self.gl_widget)
+        self.image_page = ImagePage(self.gl_widget)
         
         self.content_stack.addWidget(self.archive_page)
         self.content_stack.addWidget(self.visualization_page)
         self.content_stack.addWidget(self.displacements_page)
         self.content_stack.addWidget(self.palette_page)
+        self.content_stack.addWidget(self.image_page)
+        
+        self.archive_page.carpeta_seleccionada.connect(self.image_page.set_carpeta_modelos)
         
         self._switch_page(0)
     
@@ -91,6 +96,14 @@ class SidePanel(QWidget):
             lambda: self._switch_page(3)
         )
         icon_layout.addWidget(self.pal_btn)
+        
+        # Botón de Imagen
+        self.img_btn = self._create_icon_button(
+            "icons/imagen.svg",
+            "Renderizado de Imagen",
+            lambda: self._switch_page(4)
+        )
+        icon_layout.addWidget(self.img_btn)
 
         icon_layout.addStretch()
 
@@ -114,6 +127,7 @@ class SidePanel(QWidget):
         self.vis_btn.setChecked(False)
         self.disp_btn.setChecked(False)
         self.pal_btn.setChecked(False)
+        self.img_btn.setChecked(False)
         
         # Marcar el botón correspondiente
         if page_index == 0:
@@ -124,6 +138,8 @@ class SidePanel(QWidget):
             self.disp_btn.setChecked(True)
         elif page_index == 3:
             self.pal_btn.setChecked(True)
+        elif page_index == 4:
+            self.img_btn.setChecked(True)
         
         # Cambiar de página
         self.content_stack.setCurrentIndex(page_index)

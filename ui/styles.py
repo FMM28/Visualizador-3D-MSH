@@ -290,7 +290,7 @@ FILE_BUTTON_STYLE = """
         padding: 8px 12px;
         border-radius: 4px;
         font-size: 11px;
-        text-align: left;
+        text-align: center;
     }
     QPushButton:hover {
         background-color: #353535;

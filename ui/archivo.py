@@ -14,6 +14,7 @@ class ArchivePage(QWidget):
     archivo_seleccionado = pyqtSignal(str)
     modelo_cargado = pyqtSignal(dict)
     carpeta_cambiada = pyqtSignal()
+    carpeta_seleccionada = pyqtSignal(str)
     
     def __init__(self):
         super().__init__()
@@ -139,6 +140,8 @@ class ArchivePage(QWidget):
             
             self.lector.abrir_carpeta(ruta)
             self.label_ruta.setText(f"Carpeta seleccionada: {ruta}")
+            
+            self.carpeta_seleccionada.emit(ruta)
             
             self._limpiar_botones_archivos()
             
