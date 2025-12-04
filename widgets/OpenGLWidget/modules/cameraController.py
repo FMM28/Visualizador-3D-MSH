@@ -1,9 +1,9 @@
-from pyrr import Matrix44, Vector3
+import utils.Matrix44 as Matrix44
 import numpy as np
 
 class Camera:
     def __init__(self, center, radius):
-        self.center = Vector3(center)
+        self.center = center
         self.radius = radius
         self.reset()
         
@@ -18,14 +18,17 @@ class Camera:
         self.pan_speed = 0.001
         
     def get_view_matrix(self):
-        target = self.center + Vector3([self.pan_x, self.pan_y, 0.0])
-        direction = Vector3([
+        target = np.array(self.center) + np.array([self.pan_x, self.pan_y, 0.0])
+
+        direction = np.array([
             np.cos(self.rotation_y) * np.cos(self.rotation_x),
             np.sin(self.rotation_x),
             np.sin(self.rotation_y) * np.cos(self.rotation_x)
-        ])
+        ], dtype=float)
+
         eye = target + direction * self.distance
-        return Matrix44.look_at(eye, target, (0.0, 1.0, 0.0))
+
+        return Matrix44.look_at(eye, target, np.array([0.0, 1.0, 0.0]))
     
     def rotate(self, dx, dy):
         self.rotation_y += dx * self.rotation_speed
@@ -34,17 +37,23 @@ class Camera:
         self.rotation_x = np.clip(self.rotation_x, -np.pi/2 + 0.01, np.pi/2 - 0.01)
     
     def pan(self, dx, dy):
-        forward = Vector3([
+        forward = np.array([
             np.cos(self.rotation_y) * np.cos(self.rotation_x),
             np.sin(self.rotation_x),
             np.sin(self.rotation_y) * np.cos(self.rotation_x)
-        ])
+        ], dtype=float)
 
-        right = forward.cross(Vector3([0.0, 1.0, 0.0])).normalized
-        up = right.cross(forward).normalized
+        up_world = np.array([0.0, 1.0, 0.0], dtype=float)
+
+        right = np.cross(forward, up_world)
+        right = right / np.linalg.norm(right)
+
+        up = np.cross(right, forward)
+        up = up / np.linalg.norm(up)
 
         move = (dx * right + dy * up) * (self.pan_speed * self.distance)
-        self.center += move
+
+        self.center = self.center + move
 
     def zoom(self, amount):
         self.distance *= 1.0 - amount * self.zoom_speed
@@ -54,4 +63,4 @@ class Camera:
         """Update the model center and radius for the camera"""
         self.center = np.array(center)
         self.radius = radius
-        self.distance = min(max(self.distance, radius * 0.5), radius * 5.0)
+        self.distance = np.clip(self.distance, radius * 0.5, radius * 5.0)

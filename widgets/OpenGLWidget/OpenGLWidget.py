@@ -3,7 +3,7 @@ Widget OpenGL
 """
 import numpy as np
 from OpenGL.GL import *
-from pyrr import Matrix44
+import utils.Matrix44 as Matrix44
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QSurfaceFormat
@@ -145,7 +145,8 @@ class OpenGLWidget(QOpenGLWidget):
         
         view = self.camera.get_view_matrix()
         proj = Matrix44.perspective_projection(45.0, ratio, 0.1, self.camera.radius * 10.0)
-        return (proj * view).astype(np.float32)
+        mvp = (view @ proj).astype(np.float32)
+        return mvp
     
     def resizeGL(self, w, h):
         """Maneja el redimensionamiento del widget"""

@@ -2,3 +2,5 @@ Para Visualizaciones
 .venv
 test.py
 __pycache__
+main.dist
+nuitka-crash-report.xml
