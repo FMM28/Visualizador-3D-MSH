@@ -2,9 +2,11 @@
 Ventana principal de la aplicación
 """
 import numpy as np
-from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout
-from widgets import OpenGLWidget
+from PyQt6.QtWidgets import QHBoxLayout, QMainWindow, QWidget
+
 from ui import SidePanel
+from widgets import OpenGLWidget
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -12,7 +14,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Visualizador 3D")
         self.setGeometry(100, 100, 1200, 800)
         self.showMaximized()
-        
+
         self.reset_camera_on_next_load = True
 
         # Configurar UI
@@ -32,50 +34,66 @@ class MainWindow(QMainWindow):
 
         # Panel lateral
         self.side_panel = SidePanel(self.gl_widget)
-        
+
         # Conectar señales
         self.side_panel.archive_page.modelo_cargado.connect(self._on_modelo_cargado)
         self.side_panel.archive_page.carpeta_cambiada.connect(self._on_carpeta_cambiada)
-        
+
+        # Solo una página puede mostrar su gradiente a la vez
+        self._link_gradient_pages([
+            self.side_panel.displacements_page,
+            self.side_panel.results_page,
+        ])
+
         # Añadir widgets al layout
         main_layout.addWidget(self.side_panel)
         main_layout.addWidget(self.gl_widget, 1)
-    
+
+    @staticmethod
+    def _link_gradient_pages(pages):
+        """Cuando una página activa su gradiente, las demás lo desactivan"""
+        for page in pages:
+            for other in pages:
+                if other is not page:
+                    page.gradient_activated.connect(other.deactivate_gradient)
+
     def _on_carpeta_cambiada(self):
         """Callback cuando se cambia de carpeta"""
         self.reset_camera_on_next_load = True
-    
+
     def _on_modelo_cargado(self, datos_modelo):
         """Callback cuando se carga un modelo desde ArchivePage"""
         coords = datos_modelo['coords']
         triangle_indices = datos_modelo['triangle_indices']
         line_indices = datos_modelo['line_indices']
         desplazamientos = datos_modelo['desplazamientos']
-        
+        resultados = datos_modelo.get('resultados')
+
         # Convertir coords a numpy array si no lo es
         if not isinstance(coords, np.ndarray):
             coords = np.array(coords)
-        
+
         # Convertir índices a listas para OpenGL
         tri_list = triangle_indices.tolist() if hasattr(triangle_indices, 'tolist') else triangle_indices
         line_list = line_indices.tolist() if hasattr(line_indices, 'tolist') else line_indices
-        
+
         # Guardar el modo actual antes de inicializar
         current_mode = self.gl_widget.current_mode
-        
+
         # Inicializar widget OpenGL con flag de reset de cámara
         self.gl_widget.initialize_geometry(
-            coords.tolist(), 
-            tri_list, 
+            coords.tolist(),
+            tri_list,
             line_list,
             reset_camera=self.reset_camera_on_next_load
         )
-        
+
         # Después del primer modelo de la carpeta, no resetear más
         self.reset_camera_on_next_load = False
-        
+
         # Restaurar el modo de visualización
         self.gl_widget.set_mode(current_mode)
-        
-        # Establecer datos de desplazamientos
+
+        # Establecer datos de desplazamientos y resultados
         self.side_panel.displacements_page.set_data(coords, desplazamientos)
+        self.side_panel.results_page.set_data(resultados, triangle_indices, len(coords))

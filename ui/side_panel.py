@@ -1,16 +1,24 @@
 """
 Panel lateral con pestañas y barra de iconos
 """
-from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QToolButton,
-                             QStackedWidget)
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon
-from .styles import SIDE_PANEL_STYLE, ICON_BAR_STYLE, STACKED_WIDGET_STYLE
-from .visualizacion import VisualizationPage
-from .desplazamientos import DisplacementsPage
-from .paleta import PaletaPage
+from PyQt6.QtWidgets import (
+    QHBoxLayout,
+    QStackedWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
 from .archivo import ArchivePage
+from .desplazamientos import DisplacementsPage
 from .imagen import ImagePage
+from .paleta import PaletaPage
+from .results import ResultsPage
+from .styles import ICON_BAR_STYLE, SIDE_PANEL_STYLE, STACKED_WIDGET_STYLE
+from .visualizacion import VisualizationPage
+
 
 class SidePanel(QWidget):
     def __init__(self, gl_widget):
@@ -42,10 +50,12 @@ class SidePanel(QWidget):
         self.displacements_page = DisplacementsPage(self.gl_widget)
         self.palette_page = PaletaPage(self.gl_widget)
         self.image_page = ImagePage(self.gl_widget)
+        self.results_page = ResultsPage(self.gl_widget)
         
         self.content_stack.addWidget(self.archive_page)
         self.content_stack.addWidget(self.visualization_page)
         self.content_stack.addWidget(self.displacements_page)
+        self.content_stack.addWidget(self.results_page)
         self.content_stack.addWidget(self.palette_page)
         self.content_stack.addWidget(self.image_page)
         
@@ -89,11 +99,19 @@ class SidePanel(QWidget):
         )
         icon_layout.addWidget(self.disp_btn)
         
+        # Botón de Resultados
+        self.results_btn = self._create_icon_button(
+            "icons/resultados.svg",
+            "Resultados",
+            lambda: self._switch_page(3)
+        )
+        icon_layout.addWidget(self.results_btn)
+        
         # Botón de Paleta
         self.pal_btn = self._create_icon_button(
             "icons/paleta.svg",
             "Paleta",
-            lambda: self._switch_page(3)
+            lambda: self._switch_page(4)
         )
         icon_layout.addWidget(self.pal_btn)
         
@@ -101,7 +119,7 @@ class SidePanel(QWidget):
         self.img_btn = self._create_icon_button(
             "icons/imagen.svg",
             "Renderizado de Imagen",
-            lambda: self._switch_page(4)
+            lambda: self._switch_page(5)
         )
         icon_layout.addWidget(self.img_btn)
 
@@ -126,6 +144,7 @@ class SidePanel(QWidget):
         self.arch_btn.setChecked(False)
         self.vis_btn.setChecked(False)
         self.disp_btn.setChecked(False)
+        self.results_btn.setChecked(False)
         self.pal_btn.setChecked(False)
         self.img_btn.setChecked(False)
         
@@ -137,8 +156,10 @@ class SidePanel(QWidget):
         elif page_index == 2:
             self.disp_btn.setChecked(True)
         elif page_index == 3:
-            self.pal_btn.setChecked(True)
+            self.results_btn.setChecked(True)
         elif page_index == 4:
+            self.pal_btn.setChecked(True)
+        elif page_index == 5:
             self.img_btn.setChecked(True)
         
         # Cambiar de página
