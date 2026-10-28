@@ -1,14 +1,32 @@
 """
 Página de selección de archivos con barra de progreso
 """
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, 
-                             QLabel, QPushButton,
-                             QButtonGroup, QFileDialog, QScrollArea,
-                             QProgressDialog, QApplication)
+import numpy as np
 from PyQt6.QtCore import Qt, pyqtSignal
-from .styles import (get_page_style, FILE_BUTTON_STYLE, FOLDER_SELECT_BUTTON_STYLE, 
-                     FILE_INFO_LABEL_STYLE, FILE_SCROLL_AREA_STYLE, PROGRESS_DIALOG_STYLE)
-from utils import Lector, filtrar_elementos_visibles, mapear_nodos
+from PyQt6.QtWidgets import (
+    QApplication,
+    QButtonGroup,
+    QFileDialog,
+    QGroupBox,
+    QLabel,
+    QProgressDialog,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
+from utils import Lector, filtrar_elementos_visibles, reindexar_resultados
+
+from .styles import (
+    FILE_BUTTON_STYLE,
+    FILE_INFO_LABEL_STYLE,
+    FILE_SCROLL_AREA_STYLE,
+    FOLDER_SELECT_BUTTON_STYLE,
+    PROGRESS_DIALOG_STYLE,
+    get_page_style,
+)
+
 
 class ArchivePage(QWidget):
     archivo_seleccionado = pyqtSignal(str)
@@ -146,7 +164,7 @@ class ArchivePage(QWidget):
             self._limpiar_botones_archivos()
             
             # Obtener la lista de archivos
-            archivos = self.lector.archivos_msh
+            archivos = self.lector.archivos_vtu
             
             if archivos:
                 self.label_sin_archivos.hide()
@@ -191,46 +209,63 @@ class ArchivePage(QWidget):
             self.layout_archivos.insertWidget(self.layout_archivos.count() - 1, btn_archivo)
             self.botones_archivos.addButton(btn_archivo)
     
+    @staticmethod
+    def _buscar_desplazamientos(resultados):
+        """Busca entre los point_data reindexados el de desplazamientos y lo devuelve como (n, 3)."""
+        for r in resultados.values():
+            nombre = r["nombre"].lower()
+            if r["tipo"] == "point_data" and ("desplaz" in nombre or "displacement" in nombre):
+                valores = r["valores"]
+                if valores.ndim == 2 and valores.shape[1] == 2:
+                    valores = np.hstack([valores, np.zeros((len(valores), 1))])
+                return valores
+        return None
+ 
     def _on_archivo_seleccionado(self, idx, archivo):
         """Maneja la selección de un archivo"""
-
+ 
         if self.archivo_actual == archivo:
             return
-        
+ 
         self._mostrar_progreso("Cargando Modelo", f"Cargando {archivo}...", 100)
-        
+ 
         try:
             self._actualizar_progreso(20, f"Cargando {archivo}...")
             self.archivo_seleccionado.emit(archivo)
-            
+ 
             # Obtener modelo
             self._actualizar_progreso(40, "Leyendo datos del archivo...")
             doc = self.lector.obtener_modelo(idx)
             coords, elements = doc["msh"]
-            desplazamientos = doc["res"].get("desplazamientos")
-            
+            res = doc["res"]
+ 
             # Filtrar elementos visibles
             self._actualizar_progreso(60, "Procesando geometría...")
-            coords, triangle_indices, line_indices, node_map = filtrar_elementos_visibles(coords, elements)
-            
-            self._actualizar_progreso(80, "Procesando desplazamientos...")
-            desplazamientos = mapear_nodos(desplazamientos, node_map)
-            
+            coords, triangle_indices, line_indices, surface_nodes, tri_to_elem = \
+                filtrar_elementos_visibles(coords, elements)
+ 
+            # Reindexar resultados (point data -> nodos, cell data -> triángulos)
+            self._actualizar_progreso(80, "Procesando resultados...")
+            resultados = reindexar_resultados(res, surface_nodes, tri_to_elem)
+            desplazamientos = self._buscar_desplazamientos(resultados)
+ 
             # Emitir señal con los datos procesados
             self._actualizar_progreso(95, "Finalizando...")
             datos_modelo = {
                 'coords': coords,
                 'triangle_indices': triangle_indices,
                 'line_indices': line_indices,
-                'desplazamientos': desplazamientos
+                'desplazamientos': desplazamientos,
+                'resultados': resultados,
+                'tri_to_elem': tri_to_elem,
             }
             self.modelo_cargado.emit(datos_modelo)
-            
+ 
             self._actualizar_progreso(100, "¡Completado!")
-            
+ 
             # Guardar archivo actual después de carga exitosa
             self.archivo_actual = archivo
-            
+ 
         except Exception as e:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(self, "Error", f"Error al cargar el modelo: {str(e)}")
