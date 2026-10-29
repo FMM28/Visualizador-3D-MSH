@@ -7,4 +7,6 @@ python -m nuitka main.py ^
   --include-package=OpenGL ^
   --include-package=OpenGL_accelerate ^
   --include-package=numpy ^
-  --follow-imports
+  --include-data-dir=icons=icons ^
+  --follow-imports ^
+  --windows-console-mode=disable
