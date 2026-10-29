@@ -404,6 +404,59 @@ PROGRESS_DIALOG_STYLE = """
     }
 """
 
+# Botones del diálogo de previsualización: todos con el mismo estilo y tamaño
+DIALOG_BUTTON_STYLE = """
+QPushButton {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton:hover { background-color: #3a3a3a; border-color: #5a5a5a; }
+QPushButton:pressed { background-color: #252525; }
+"""
+DIALOG_BUTTON_SIZE = (160, 36)
+
+# Botones − / + de los campos de resolución
+STEP_BUTTON_STYLE = """
+QPushButton {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 0;
+}
+QPushButton:hover { background-color: #3a3a3a; border-color: #5a5a5a; }
+QPushButton:pressed { background-color: #252525; }
+QPushButton:disabled { color: #606060; }
+"""
+FIELD_HEIGHT = 32
+
+# Campos de resolución sin flechas nativas (los botones − / + van fuera del campo)
+SPIN_HIDDEN_ARROWS_STYLE = """
+QSpinBox::up-button, QSpinBox::down-button { width: 0px; border: none; }
+QSpinBox::up-arrow, QSpinBox::down-arrow { width: 0px; height: 0px; }
+"""
+
+HUD_STYLE = (
+    "background-color: rgba(0, 0, 0, 170); color: #e0e0e0;"
+    "padding: 6px 10px; border-radius: 4px; font-size: 12px;"
+)
+
+CLOSE_BUTTON_STYLE = """
+QPushButton {
+    background-color: rgba(0, 0, 0, 170); color: #e0e0e0;
+    border: 1px solid #404040; border-radius: 4px;
+    padding: 6px 12px; font-size: 12px;
+}
+QPushButton:hover { background-color: rgba(60, 60, 60, 220); }
+"""
+
 # Estilo completo para la página de paletas
 PALETTE_PAGE_STYLE = PAGE_CONTENT_STYLE + SCROLL_AREA_STYLE
 
