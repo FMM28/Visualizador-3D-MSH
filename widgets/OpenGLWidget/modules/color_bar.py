@@ -103,22 +103,30 @@ class ColorBar(QWidget):
         height = 2 * self.PADDING + self._title_height() + self._bar_height + fm.height()
 
         self.setFixedSize(width, height)
+        self.move(*self.aligned_position(parent.width(), parent.height()))
+        self.update()
 
+    def aligned_position(self, area_width, area_height):
+        """
+        Esquina superior izquierda de la barra dentro de un área del tamaño dado,
+        según la posición elegida. Se usa en pantalla y al renderizar imágenes.
+        """
+        width, height = self.width(), self.height()
         h_align, v_align = self.POSITIONS[self._position]
+
         if h_align == "left":
             x = self.MARGIN
         else:
-            x = parent.width() - width - self.MARGIN
+            x = area_width - width - self.MARGIN
 
         if v_align == "top":
             y = self.MARGIN
         elif v_align == "bottom":
-            y = parent.height() - height - self.MARGIN
+            y = area_height - height - self.MARGIN
         else:
-            y = (parent.height() - height) // 2
+            y = (area_height - height) / 2
 
-        self.move(max(x, 0), max(y, 0))
-        self.update()
+        return int(max(x, 0)), int(max(y, 0))
 
     def _metrics(self, font):
         """Métricas medidas contra este widget (mismo DPI que al pintar)"""

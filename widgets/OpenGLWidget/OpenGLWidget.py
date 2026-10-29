@@ -3,9 +3,12 @@ Widget OpenGL
 """
 import numpy as np
 from OpenGL.GL import *
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QSurfaceFormat
+from PyQt6 import sip
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QImage, QPainter, QRegion, QSurfaceFormat
+from PyQt6.QtOpenGL import QOpenGLFramebufferObject, QOpenGLFramebufferObjectFormat
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+from PyQt6.QtWidgets import QWidget
 
 import utils.Matrix44 as Matrix44
 
@@ -155,10 +158,11 @@ class OpenGLWidget(QOpenGLWidget):
             self.height()
         )
     
-    def _calculate_mvp_matrix(self):
-        """Calcula la matriz MVP"""
-        width, height = self.width(), max(self.height(), 1)
-        ratio = width / height
+    def _calculate_mvp_matrix(self, width=None, height=None):
+        """Calcula la matriz MVP (por defecto con la proporción del widget)"""
+        if width is None or height is None:
+            width, height = self.width(), self.height()
+        ratio = width / max(height, 1)
         
         view = self.camera.get_view_matrix()
         proj = Matrix44.perspective_projection(45.0, ratio, 0.1, self.camera.radius * 10.0)
@@ -335,6 +339,89 @@ class OpenGLWidget(QOpenGLWidget):
         if success:
             self.update()
     
+    # ============ Renderizado a imagen ============
+
+    RENDER_SAMPLES = 4   # Antialiasing (MSAA) del render a imagen
+
+    @staticmethod
+    def _gl_int(param):
+        """Lee un entero de glGetIntegerv (PyOpenGL puede devolver array o escalar)"""
+        return int(np.ravel(glGetIntegerv(param))[0])
+
+    def max_render_size(self):
+        """Lado máximo en píxeles que la GPU admite para un render fuera de pantalla"""
+        if not self.gl_initialized:
+            return None
+        self.makeCurrent()
+        try:
+            max_renderbuffer = self._gl_int(GL_MAX_RENDERBUFFER_SIZE)
+            max_viewport = int(np.min(np.ravel(glGetIntegerv(GL_MAX_VIEWPORT_DIMS))))
+        finally:
+            self.doneCurrent()
+        return min(max_renderbuffer, max_viewport)
+
+    def render_to_image(self, width, height, include_color_bar=True):
+        """
+        Renderiza la escena fuera de pantalla a exactamente width x height píxeles,
+        sin modificar el widget visible.
+        """
+        if not (self.gl_initialized and self.buffers_created and self.camera):
+            raise RuntimeError("No hay un modelo cargado para renderizar.")
+
+        width, height = int(width), int(height)
+        limit = self.max_render_size()
+        if width > limit or height > limit:
+            raise ValueError(
+                f"La tarjeta gráfica admite como máximo {limit} px por lado "
+                f"(se pidió {width} x {height} px).")
+
+        self.makeCurrent()
+        fbo = None
+        try:
+            fmt = QOpenGLFramebufferObjectFormat()
+            fmt.setAttachment(QOpenGLFramebufferObject.Attachment.CombinedDepthStencil)
+            fmt.setSamples(min(self.RENDER_SAMPLES, self._gl_int(GL_MAX_SAMPLES)))
+
+            fbo = QOpenGLFramebufferObject(width, height, fmt)
+            if not fbo.isValid():
+                raise RuntimeError(
+                    f"No se pudo reservar memoria de vídeo para {width} x {height} px.")
+
+            fbo.bind()
+            glViewport(0, 0, width, height)
+            mvp = self._calculate_mvp_matrix(width, height)
+            self.renderer.render_scene(self.current_mode, mvp, width, height)
+            image = fbo.toImage()   # Resuelve el multisampling y voltea a orientación Qt
+            fbo.release()
+        finally:
+            if fbo is not None:
+                sip.delete(fbo)     # Liberar la memoria de vídeo con el contexto activo
+            glBindFramebuffer(GL_FRAMEBUFFER, self.defaultFramebufferObject())
+            self.doneCurrent()
+
+        image = image.convertToFormat(QImage.Format.Format_RGB32)
+        if include_color_bar:
+            self._paint_color_bar(image)
+        return image
+
+    def _paint_color_bar(self, image):
+        """Pinta la barra de colores sobre la imagen con la misma escala relativa que en pantalla"""
+        if not self.color_bar.isVisibleTo(self):
+            return
+
+        # Factor entre la imagen y el área visible: la barra ocupa la misma fracción
+        scale = image.height() / max(self.height(), 1)
+
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+        painter.scale(scale, scale)
+        x, y = self.color_bar.aligned_position(image.width() / scale, image.height() / scale)
+        # Sin DrawWindowBackground: la barra ya pinta su propio fondo redondeado
+        self.color_bar.render(painter, QPoint(x, y), QRegion(),
+                              QWidget.RenderFlag.DrawChildren)
+        painter.end()
+
     # ============ Limpieza ============
     
     def __del__(self):
