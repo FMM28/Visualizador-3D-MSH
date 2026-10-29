@@ -215,7 +215,10 @@ class DisplacementsPage(GradientPage):
             return
 
         col_index = self.AXIS_MAP.get(self.current_axis, 0)
-        self._apply_gradient_values(self.displacement_data[:, col_index])
+        self._apply_gradient_values(
+            self.displacement_data[:, col_index],
+            title=f"Desplazamiento {self.current_axis.upper()}",
+        )
 
     def _update_displacements(self, factor):
         """Actualiza las coordenadas con desplazamientos amplificados"""

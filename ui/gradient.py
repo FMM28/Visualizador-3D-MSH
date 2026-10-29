@@ -56,11 +56,15 @@ class GradientPage(QWidget):
         """Indica si el gradiente de esta página está marcado"""
         return self.gradient_checkbox is not None and self.gradient_checkbox.isChecked()
 
-    def _apply_gradient_values(self, values):
-        """Envía valores nodales al widget GL, activa el gradiente y actualiza el rango"""
+    def _apply_gradient_values(self, values, title=""):
+        """
+        Envía valores nodales al widget GL, activa el gradiente y actualiza el rango.
+        `title` se muestra en la barra de colores del área de render.
+        """
         if self.gl_widget is None:
             return
         values = np.asarray(values, dtype=np.float32)
+        self.gl_widget.set_colorbar_title(title)
         self.gl_widget.set_node_values(values, auto_range=True)
         self.gl_widget.enable_gradient(True)
         self._set_range_text(float(np.min(values)), float(np.max(values)))

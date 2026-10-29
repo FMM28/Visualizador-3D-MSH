@@ -1,15 +1,35 @@
 """
 Página de configuración de visualización
 """
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, QLabel,
-                             QComboBox, QSlider, QPushButton, QHBoxLayout,
-                             QDialog)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from .styles import get_page_style, BUTTON_STYLE
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
+
 from .color_picker import ColorPickerDialog
+from .styles import BUTTON_STYLE, get_page_style
+
 
 class VisualizationPage(QWidget):
+    # Posiciones de la barra de colores: (etiqueta, clave usada por ColorBar)
+    COLORBAR_POSITIONS = [
+        ("Derecha (centro)", "right"),
+        ("Izquierda (centro)", "left"),
+        ("Superior derecha", "top_right"),
+        ("Inferior derecha", "bottom_right"),
+        ("Superior izquierda", "top_left"),
+        ("Inferior izquierda", "bottom_left"),
+    ]
+
     def __init__(self, gl_widget):
         super().__init__()
         self.gl_widget = gl_widget
@@ -49,6 +69,9 @@ class VisualizationPage(QWidget):
 
         # Color de fondo
         layout.addWidget(self._create_appearance_group())
+
+        # Barra de colores
+        layout.addWidget(self._create_colorbar_group())
 
         # Control de cámara
         layout.addWidget(self._create_camera_group())
@@ -150,6 +173,28 @@ class VisualizationPage(QWidget):
 
         return appearance_group
     
+    def _create_colorbar_group(self):
+        """Crea el grupo de configuración de la barra de colores"""
+        colorbar_group = QGroupBox("Barra de Colores")
+        colorbar_layout = QVBoxLayout(colorbar_group)
+        colorbar_layout.setSpacing(8)
+
+        colorbar_layout.addWidget(QLabel("Posición en la escena:"))
+
+        self.colorbar_position_combo = QComboBox()
+        for label, key in self.COLORBAR_POSITIONS:
+            self.colorbar_position_combo.addItem(label, key)
+
+        # Sincronizar con la posición actual del widget GL
+        current = self.gl_widget.get_colorbar_position()
+        index = self.colorbar_position_combo.findData(current)
+        self.colorbar_position_combo.setCurrentIndex(max(index, 0))
+
+        self.colorbar_position_combo.currentIndexChanged.connect(self._on_colorbar_position_changed)
+        colorbar_layout.addWidget(self.colorbar_position_combo)
+
+        return colorbar_group
+
     def _create_camera_group(self):
         """Crea el grupo de control de cámara"""
         camera_group = QGroupBox("Control de Cámara")
@@ -168,6 +213,11 @@ class VisualizationPage(QWidget):
         mode = self.mode_combo.itemData(index)
         self.gl_widget.set_mode(mode)
     
+    def _on_colorbar_position_changed(self, index):
+        """Mueve la barra de colores a la posición seleccionada"""
+        position = self.colorbar_position_combo.itemData(index)
+        self.gl_widget.set_colorbar_position(position)
+
     def _on_line_width_changed(self, value):
         """Cambia el grosor de las líneas"""
         line_width = value / 10.0

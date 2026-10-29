@@ -3,11 +3,21 @@ Widget OpenGL
 """
 import numpy as np
 from OpenGL.GL import *
-import utils.Matrix44 as Matrix44
-from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QSurfaceFormat
-from .modules import Camera,ShaderManager,ColormapManager,BufferManager,Renderer
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+
+import utils.Matrix44 as Matrix44
+
+from .modules import (
+    BufferManager,
+    Camera,
+    ColorBar,
+    ColormapManager,
+    Renderer,
+    ShaderManager,
+)
+
 
 class OpenGLWidget(QOpenGLWidget):
     """Widget OpenGL para visualización de modelos 3D"""
@@ -37,6 +47,13 @@ class OpenGLWidget(QOpenGLWidget):
         self.gl_initialized = False
         self.geometry_initialized = False
         self.buffers_created = False
+        self._has_gradient_range = False
+        
+        # Barra de colores superpuesta
+        self.color_bar = ColorBar(self)
+        self.color_bar.set_colors(
+            self.colormap_manager.get_palette_colors(self.colormap_manager.current_palette)
+        )
         
         self._setup_opengl_format()
     
@@ -151,6 +168,7 @@ class OpenGLWidget(QOpenGLWidget):
     def resizeGL(self, w, h):
         """Maneja el redimensionamiento del widget"""
         glViewport(0, 0, w, h)
+        self.color_bar.reposition()
     
     # ============ Eventos de Mouse ============
     
@@ -239,22 +257,56 @@ class OpenGLWidget(QOpenGLWidget):
             value_min = float(np.min(values_array))
             value_max = float(np.max(values_array))
             
+            # La barra muestra el rango real de los datos
+            self.color_bar.set_range(value_min, value_max)
+            self._has_gradient_range = True
+            
             if abs(value_max - value_min) < 1e-10:
                 value_max = value_min + 1.0
             
             self.renderer.set_value_range(value_min, value_max)
         
+        self._update_color_bar_visibility()
         self.update()
+    
+    def set_colorbar_title(self, title):
+        """Establece el título de la barra de colores"""
+        self.color_bar.set_title(title)
+
+    def set_colorbar_position(self, position):
+        """Cambia la posición de la barra de colores ('right', 'top_left', ...)"""
+        return self.color_bar.set_position(position)
+
+    def get_colorbar_position(self):
+        """Retorna la posición actual de la barra de colores"""
+        return self.color_bar.position()
     
     def set_color_palette(self, palette_name):
         """Cambia la paleta de colores."""
-        if self.colormap_manager.set_palette(palette_name):
+        # La textura se sube a la GPU: requiere el contexto activo
+        if self.gl_initialized:
+            self.makeCurrent()
+        success = self.colormap_manager.set_palette(palette_name)
+        if self.gl_initialized:
+            self.doneCurrent()
+        
+        if success:
+            self.color_bar.set_colors(self.colormap_manager.get_palette_colors(palette_name))
             self.update()
     
     def enable_gradient(self, enabled=True):
         """Habilita o deshabilita el renderizado con gradientes."""
         self.renderer.set_gradient_enabled(enabled)
+        self._update_color_bar_visibility()
         self.update()
+    
+    def _update_color_bar_visibility(self):
+        """Muestra la barra solo si hay un gradiente activo con rango conocido"""
+        visible = self.renderer.is_gradient_enabled() and self._has_gradient_range
+        self.color_bar.setVisible(visible)
+        if visible:
+            self.color_bar.reposition()
+            self.color_bar.raise_()
     
     def is_gradient_enabled(self):
         """Retorna si el gradiente está habilitado"""

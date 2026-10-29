@@ -192,7 +192,9 @@ class ResultsPage(GradientPage):
             self._clear_range("Rango: el tamaño del campo no coincide con la malla")
             return
 
-        self._apply_gradient_values(values)
+        component = self.component_combo.currentText()
+        title = r["nombre"] if component in ("", "Valor") else f"{r['nombre']} · {component}"
+        self._apply_gradient_values(values, title=title)
 
     def set_data(self, resultados, triangle_indices, n_nodes):
         """Establece los resultados del modelo cargado"""
