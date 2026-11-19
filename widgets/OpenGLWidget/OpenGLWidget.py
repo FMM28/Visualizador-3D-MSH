@@ -424,19 +424,36 @@ class OpenGLWidget(QOpenGLWidget):
     # ============ Gestión de Gradientes ============
 
     def set_node_values(self, values, auto_range=True):
-        """Establece los valores nodales para el gradiente"""
+        """Gradiente nodal: un valor por nodo, interpolado en cada triángulo.
+        Retorna True si se aplicó."""
+        return self._set_gradient_values(values, "node", auto_range)
+
+    def set_element_values(self, values, auto_range=True):
+        """Gradiente por elemento: un valor por triángulo, constante en todo el elemento.
+        Retorna True si se aplicó."""
+        return self._set_gradient_values(values, "element", auto_range)
+
+    def _set_gradient_values(self, values, mode, auto_range):
+        """Sube los valores al buffer del modo indicado y ajusta rango y barra de colores"""
         if not self.geometry_initialized or not self.buffers_created:
             print("Geometría o buffers no inicializados todavía")
-            return
+            return False
 
         values_array = np.asarray(values, dtype=np.float32)
 
         self.makeCurrent()
-        success = self.buffer_manager.update_gradient_values(values_array)
-        self.doneCurrent()
+        try:
+            if mode == "element":
+                success = self.buffer_manager.update_element_values(values_array)
+            else:
+                success = self.buffer_manager.update_gradient_values(values_array)
+        finally:
+            self.doneCurrent()
 
         if not success:
-            return
+            return False
+
+        self.renderer.set_gradient_mode(mode)
 
         if auto_range:
             value_min = float(np.min(values_array))
@@ -453,6 +470,7 @@ class OpenGLWidget(QOpenGLWidget):
 
         self._update_color_bar_visibility()
         self.update()
+        return True
 
     def set_colorbar_title(self, title):
         """Establece el título de la barra de colores"""

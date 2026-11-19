@@ -19,7 +19,8 @@ class BufferManager:
         return {
             'solid': {'vao': None, 'vbo': None, 'ibo': None, 'count': 0},
             'line': {'vao': None, 'vbo': None, 'count': 0},
-            'gradient': {'vao': None, 'vbo_pos': None, 'vbo_val': None, 'ibo': None, 'count': 0}
+            'gradient': {'vao': None, 'vbo_pos': None, 'vbo_val': None, 'ibo': None, 'count': 0},
+            'element': {'vbo': None, 'tex': None, 'count': 0}
         }
     
     def initialize(self, coords, triangle_indices, line_indices):
@@ -38,6 +39,7 @@ class BufferManager:
         self._create_solid_buffers()
         self._create_line_buffers()
         self._create_gradient_buffers()
+        self._create_element_buffers()
         glBindVertexArray(0)
         print("Buffers creados exitosamente")
     
@@ -112,6 +114,24 @@ class BufferManager:
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grad_buf['ibo'])
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, self.triangle_indices.nbytes, self.triangle_indices, GL_STATIC_DRAW)
     
+    def _create_element_buffers(self):
+        """Crea el buffer texture con un valor por triángulo (gradiente por elemento)"""
+        elem_buf = self.buffers['element']
+        n_tris = len(self.triangle_indices) // 3
+        elem_buf['count'] = n_tris
+        elem_buf['vbo'] = glGenBuffers(1)
+        elem_buf['tex'] = glGenTextures(1)
+
+        dummy_values = np.zeros(max(n_tris, 1), dtype=np.float32)
+        glBindBuffer(GL_TEXTURE_BUFFER, elem_buf['vbo'])
+        glBufferData(GL_TEXTURE_BUFFER, dummy_values.nbytes, dummy_values, GL_DYNAMIC_DRAW)
+
+        glBindTexture(GL_TEXTURE_BUFFER, elem_buf['tex'])
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, elem_buf['vbo'])
+
+        glBindTexture(GL_TEXTURE_BUFFER, 0)
+        glBindBuffer(GL_TEXTURE_BUFFER, 0)
+
     def update_coords(self, new_coords):
         """Actualiza las coordenadas de los vértices"""
         if self.coords_array is None:
@@ -158,6 +178,31 @@ class BufferManager:
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         return True
     
+    def update_element_values(self, values):
+        """Actualiza los valores por elemento (uno por triángulo, sin promediar)"""
+        if self.triangle_indices is None:
+            raise RuntimeError("BufferManager no ha sido inicializado.")
+
+        values_array = np.ascontiguousarray(values, dtype=np.float32).ravel()
+        n_tris = self.buffers['element']['count']
+
+        if len(values_array) != n_tris:
+            print(f"Error: Se esperan {n_tris} valores por elemento, se recibieron {len(values_array)}")
+            return False
+        if n_tris == 0:
+            return True
+
+        glBindBuffer(GL_TEXTURE_BUFFER, self.buffers['element']['vbo'])
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, values_array.nbytes, values_array)
+        glBindBuffer(GL_TEXTURE_BUFFER, 0)
+        return True
+
+    def bind_element_texture(self, unit=1):
+        """Enlaza la buffer texture de valores por elemento a una unidad de textura"""
+        glActiveTexture(GL_TEXTURE0 + unit)
+        glBindTexture(GL_TEXTURE_BUFFER, self.buffers['element']['tex'])
+        glActiveTexture(GL_TEXTURE0)   # Dejar activa la unidad 0 (colormap / Qt)
+
     def get_buffer(self, buffer_type):
         """Obtiene información de un buffer específico"""
         return self.buffers.get(buffer_type)
@@ -180,5 +225,7 @@ class BufferManager:
                     glDeleteBuffers(1, [buf_type['vbo_val']])
                 if buf_type.get('ibo'):
                     glDeleteBuffers(1, [buf_type['ibo']])
+                if buf_type.get('tex'):
+                    glDeleteTextures(1, [buf_type['tex']])
         except:
             pass

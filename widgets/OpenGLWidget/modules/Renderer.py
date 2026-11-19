@@ -16,6 +16,7 @@ class Renderer:
         
         # Estado de gradientes
         self.gradient_enabled = False
+        self.gradient_mode = "node"
         self.value_min = 0.0
         self.value_max = 1.0
     
@@ -55,22 +56,28 @@ class Renderer:
         glPolygonOffset(1.0, 1.0)
         glEnable(GL_POLYGON_OFFSET_FILL)
         
-        program = self.shader_manager.use_program("gradient")
+        element_mode = self.gradient_mode == "element"
+        program = self.shader_manager.use_program("element" if element_mode else "gradient")
         if not program:
             return
-        
+
         # Configurar uniformes
         self.shader_manager.set_uniform_matrix4fv(program, "mvp", mvp_matrix)
-        
+
         # Configurar textura de colormap
         self.colormap_manager.bind_texture(0)
         self.shader_manager.set_uniform_1i(program, "colormap", 0)
-        
+
         # Configurar rango de valores
         self.shader_manager.set_uniform_1f(program, "value_min", self.value_min)
         self.shader_manager.set_uniform_1f(program, "value_max", self.value_max)
-        
-        buf = self.buffer_manager.get_buffer('gradient')
+
+        if element_mode:
+            self.buffer_manager.bind_element_texture(1)
+            self.shader_manager.set_uniform_1i(program, "elem_values", 1)
+            buf = self.buffer_manager.get_buffer('solid')
+        else:
+            buf = self.buffer_manager.get_buffer('gradient')
         glBindVertexArray(buf['vao'])
         glDrawElements(GL_TRIANGLES, buf['count'], GL_UNSIGNED_INT, None)
         glBindVertexArray(0)
@@ -140,6 +147,15 @@ class Renderer:
         """Habilita o deshabilita el renderizado con gradientes"""
         self.gradient_enabled = enabled
     
+    def set_gradient_mode(self, mode):
+        """Establece el tipo de gradiente: 'node' o 'element'"""
+        if mode in ("node", "element"):
+            self.gradient_mode = mode
+
+    def get_gradient_mode(self):
+        """Retorna el tipo de gradiente actual"""
+        return self.gradient_mode
+
     def set_value_range(self, min_val, max_val):
         """Establece el rango de valores para el gradiente"""
         self.value_min = float(min_val)

@@ -15,6 +15,9 @@ class GradientPage(QWidget):
     # Se emite cuando esta página toma el control del gradiente
     gradient_activated = pyqtSignal()
 
+    MODE_NODE = "node"        # un valor por nodo
+    MODE_ELEMENT = "element"  # un valor por elemento (triángulo)
+
     def __init__(self, gl_widget):
         super().__init__()
         self.gl_widget = gl_widget
@@ -56,16 +59,24 @@ class GradientPage(QWidget):
         """Indica si el gradiente de esta página está marcado"""
         return self.gradient_checkbox is not None and self.gradient_checkbox.isChecked()
 
-    def _apply_gradient_values(self, values, title=""):
+    def _apply_gradient_values(self, values, title="", mode=MODE_NODE):
         """
-        Envía valores nodales al widget GL, activa el gradiente y actualiza el rango.
-        `title` se muestra en la barra de colores del área de render.
+        Envía valores al widget GL, activa el gradiente y actualiza el rango.
         """
         if self.gl_widget is None:
             return
         values = np.asarray(values, dtype=np.float32)
         self.gl_widget.set_colorbar_title(title)
-        self.gl_widget.set_node_values(values, auto_range=True)
+
+        if mode == self.MODE_ELEMENT:
+            applied = self.gl_widget.set_element_values(values, auto_range=True)
+        else:
+            applied = self.gl_widget.set_node_values(values, auto_range=True)
+
+        if not applied:
+            self._disable_gl_gradient()
+            return
+
         self.gl_widget.enable_gradient(True)
         self._set_range_text(float(np.min(values)), float(np.max(values)))
 

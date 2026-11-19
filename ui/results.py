@@ -1,5 +1,5 @@
 """
-Página de visualización de resultados (gradientes de campos nodales y por elemento)
+Página de visualización de resultados.
 """
 import numpy as np
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -62,12 +62,6 @@ class ResultsPage(GradientPage):
         self.component_combo.setEnabled(False)
         self.component_combo.currentIndexChanged.connect(self._on_component_changed)
         layout.addWidget(self.component_combo)
-
-        # Aviso para datos por elemento
-        self.note_label = self._create_label("Valores por elemento promediados en los nodos")
-        self.note_label.setWordWrap(True)
-        self.note_label.hide()
-        layout.addWidget(self.note_label)
 
         # Rango de valores
         self.range_label = self._create_range_label()
@@ -156,24 +150,12 @@ class ResultsPage(GradientPage):
             return np.linalg.norm(valores, axis=1)
         return valores[:, self.component_combo.currentIndex()]
 
-    def _to_node_values(self, r, values):
-        """
-        Convierte los valores a un valor por nodo.
-        point_data ya es nodal; cell_data (un valor por triángulo) se promedia
-        en los nodos que comparten cada triángulo.
-        """
-        if r["tipo"] == "point_data":
-            return values if len(values) == self.n_nodes else None
+    def _gradient_mode(self, r):
+        return self.MODE_NODE if r["tipo"] == "point_data" else self.MODE_ELEMENT
 
-        tris = self.triangle_indices
-        if len(values) != len(tris):
-            return None
-
-        flat = tris.ravel()
-        sums = np.bincount(flat, weights=np.repeat(values, 3), minlength=self.n_nodes)
-        counts = np.bincount(flat, minlength=self.n_nodes)
-        counts[counts == 0] = 1
-        return sums[:self.n_nodes] / counts[:self.n_nodes]
+    def _expected_size(self, r):
+        """Cantidad de valores que debe tener el campo: nodos o triángulos"""
+        return self.n_nodes if r["tipo"] == "point_data" else len(self.triangle_indices)
 
     def _update_gradient_values(self):
         """Calcula los valores nodales del campo/componente actual y los aplica"""
@@ -185,16 +167,16 @@ class ResultsPage(GradientPage):
             return
 
         valores = np.asarray(r["valores"], dtype=np.float64)
-        values = self._to_node_values(r, self._extract_component(valores))
+        values = self._extract_component(valores)
 
-        if values is None:
+        if len(values) != self._expected_size(r):
             self._disable_gl_gradient()
             self._clear_range("Rango: el tamaño del campo no coincide con la malla")
             return
 
         component = self.component_combo.currentText()
         title = r["nombre"] if component in ("", "Valor") else f"{r['nombre']} · {component}"
-        self._apply_gradient_values(values, title=title)
+        self._apply_gradient_values(values, title=title, mode=self._gradient_mode(r))
 
     def set_data(self, resultados, triangle_indices, n_nodes):
         """Establece los resultados del modelo cargado"""

@@ -95,7 +95,23 @@ class ShaderManager:
         frag_color = texture(colormap, t);
     }
     """
-    
+
+    FRAGMENT_SHADER_ELEMENT = """
+    #version 330 core
+    out vec4 frag_color;
+
+    uniform samplerBuffer elem_values;
+    uniform sampler1D colormap;
+    uniform float value_min;
+    uniform float value_max;
+
+    void main() {
+        float v = texelFetch(elem_values, gl_PrimitiveID).r;
+        float t = clamp((v - value_min) / (value_max - value_min), 0.0, 1.0);
+        frag_color = texture(colormap, t);
+    }
+    """
+
     def __init__(self):
         self.programs = {}
     
@@ -117,7 +133,10 @@ class ShaderManager:
             vs_grad = compileShader(self.VERTEX_SHADER_GRADIENT, GL_VERTEX_SHADER)
             fs_grad = compileShader(self.FRAGMENT_SHADER_GRADIENT, GL_FRAGMENT_SHADER)
             self.programs["gradient"] = compileProgram(vs_grad, fs_grad)
-            
+
+            fs_elem = compileShader(self.FRAGMENT_SHADER_ELEMENT, GL_FRAGMENT_SHADER)
+            self.programs["element"] = compileProgram(vs, fs_elem, validate=False)
+
             print("Shaders compilados exitosamente")
             
         except Exception as e:
